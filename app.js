@@ -128,6 +128,29 @@ const UI = {
     document.querySelectorAll("form").forEach(f=>{
       f.addEventListener("submit", (e)=>{ e.preventDefault(); e.stopPropagation(); }, true);
     });
+
+    // ✅ تعطيل تحقق المتصفح (required) والاعتماد على تحقق الجافاسكربت
+    document.querySelectorAll("form").forEach(f=>{
+      f.noValidate = true;
+      f.setAttribute("novalidate","novalidate");
+      f.addEventListener("submit", (e)=>{ e.preventDefault(); e.stopPropagation(); }, true);
+    });
+
+    // ✅ تحويل الأزرار إلى type=button لمنع submit
+    ["btnSubmitBooking","btnRefreshBookings","btnPrevWeek","btnNextWeek","btnRefreshWeek",
+     "btnSaveSettings","btnCloseSettings","btnBooking","btnSchedule","btnCustody",
+     "btnFeedback","btnReport","btnSettings","btnReloadCustody","btnSubmitFeedback"
+    ].forEach(id=>{
+      const b = document.getElementById(id);
+      if(b) b.setAttribute("type","button");
+    });
+
+    // ✅ إزالة required من حقول الحجز (إن وُجد) حتى لا يظهر "أكمل هذا الحقل"
+    ["b_name","b_subject","b_grade","b_lessonTitle","b_purpose","b_date","b_period","b_notes"]
+      .forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.removeAttribute("required");
+      });
     if($("b_period")){
       $("b_period").innerHTML =
         `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
