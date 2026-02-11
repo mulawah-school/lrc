@@ -102,4 +102,257 @@ const UI = {
         const lesson=String(b["عنوان_الدرس"] ?? b.lessonTitle ?? "").toLowerCase();
         return name.includes(q) || subj.includes(q) || grade.includes(q) || lesson.includes(q);
       })
-      .sort((a,b)=>Number(a["الحصة"] ?? a.period)-Nu
+      .sort((a,b)=>Number(a["الحصة"] ?? a.period)-Number(b["الحصة"] ?? b.period));
+
+    const body = $("scheduleBody");
+    body.innerHTML = rows.length ? "" : `<tr><td colspan="7" style="text-align:center;color:#6b7280">لا توجد حجوزات</td></tr>`;
+
+    for(const b of rows){
+      const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
+      const bp = String(b["الحصة"] ?? b.period ?? "");
+      const key = `${bd}__${bp}`;
+      const conflict = (keyCount[key]||0) > 1;
+
+      body.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${esc(bp)}</td>
+          <td>${esc(b["الاسم"] ?? b.name ?? "")}</td>
+          <td>${esc(b["المادة"] ?? b.subject ?? "")}</td>
+          <td>${esc(b["الصف"] ?? b.grade ?? "")}</td>
+          <td>${esc(b["عنوان_الدرس"] ?? b.lessonTitle ?? "")}</td>
+          <td>${esc(b["الهدف_من_الحجز"] ?? b.purpose ?? "")}</td>
+          <td>${conflict ? `<span class="pill warn">تعارض</span>` : `<span class="pill ok">محجوز</span>`}</td>
+        </tr>
+      `);
+    }
+  },
+
+  renderReport(){
+    const today = new Date().toISOString().slice(0,10);
+
+    const keyCount = {};
+    for(const b of State.bookings){
+      const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
+      const bp = String(b["الحصة"] ?? b.period ?? "");
+      const key = `${bd}__${bp}`;
+      keyCount[key] = (keyCount[key]||0)+1;
+    }
+    const conflicts = Object.values(keyCount).filter(v=>v>1).length;
+
+    const todayCount = State.bookings.filter(b => String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "") === today).length;
+
+    $("r_totalBookings").textContent = State.bookings.length;
+    $("r_todayBookings").textContent = todayCount;
+    $("r_conflicts").textContent = conflicts;
+
+    $("r_totalFeedback").textContent = State.feedback.length;
+    const avg = State.feedback.length ? (State.feedback.reduce((s,f)=>s+(Number(f["التقييم"] ?? f.rate)||0),0)/State.feedback.length) : 0;
+    $("r_avgRate").textContent = avg.toFixed(1);
+  }
+};
+
+// ====== العهدة: قراءة 14 ملف Excel حسب القسم ======
+const Custody = {
+  activeDept: "",
+  rows: [],
+
+  init(){
+    const chips = $("custodyChips");
+    chips.innerHTML = DEPARTMENTS.map(d => `<button data-dept="${d}">📚 ${d}</button>`).join("");
+
+    chips.addEventListener("click", async (e)=>{
+      const btn = e.target.closest("button[data-dept]");
+      if(!btn) return;
+      Custody.activeDept = btn.dataset.dept;
+
+      for(const b of chips.querySelectorAll("button")){
+        b.classList.toggle("active", b.dataset.dept === Custody.activeDept);
+      }
+      await Custody.loadActive();
+      Custody.render();
+    });
+  },
+
+  async loadActive(){
+    const dept = Custody.activeDept;
+    const path = DEPT_FILES[dept];
+    if(!path) { alert("لا يوجد ملف مرتبط بهذا القسم. عدّل DEPT_FILES في app.js"); return; }
+
+    try{
+      UI.setStatus("تحميل ملف القسم...");
+      const resp = await fetch(path, {cache:"no-store"});
+      if(!resp.ok) throw new Error(`لم يتم العثور على الملف: ${path}`);
+      const buf = await resp.arrayBuffer();
+      const wb = XLSX.read(buf, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      Custody.rows = XLSX.utils.sheet_to_json(ws, {defval:""});
+      UI.setStatus(`تم تحميل ${dept} ✅`);
+    }catch(err){
+      Custody.rows = [];
+      UI.setStatus("فشل التحميل");
+      alert(err.message);
+    }
+  },
+
+  async reloadActive(){
+    if(!Custody.activeDept) { alert("اختر قسم أولاً"); return; }
+    await Custody.loadActive();
+    Custody.render();
+  },
+
+  render(){
+    const q = ($("c_q").value || "").trim().toLowerCase();
+    const body = $("custodyBody");
+    body.innerHTML = "";
+
+    if(!Custody.activeDept){
+      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">اختر قسم لعرض الكتب</td></tr>`;
+      return;
+    }
+    if(!Custody.rows.length){
+      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">لا توجد بيانات في ملف هذا القسم</td></tr>`;
+      return;
+    }
+
+    const rows = Custody.rows.filter(r=>{
+      const title = String(r["العنوان"] ?? "").toLowerCase();
+      const authors = String(r["المؤلفون"] ?? "").toLowerCase();
+      const topics = String(r["المواضيع"] ?? "").toLowerCase();
+      const generalNo = String(r["الرقم العام"] ?? "").toLowerCase();
+      const reqNo = String(r["رقم الطلب"] ?? "").toLowerCase();
+      return !q || title.includes(q) || authors.includes(q) || topics.includes(q) || generalNo.includes(q) || reqNo.includes(q);
+    });
+
+    if(rows.length === 0){
+      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">لا توجد نتائج</td></tr>`;
+      return;
+    }
+
+    for(const r of rows){
+      body.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td>${esc(r["الرقم العام"] ?? "")}</td>
+          <td>${esc(r["رقم التصنيف"] ?? "")}</td>
+          <td>${esc(r["رقم الطلب"] ?? "")}</td>
+          <td style="white-space:normal; min-width:260px">${esc(r["العنوان"] ?? "")}</td>
+          <td style="white-space:normal; min-width:220px">${esc(r["المواضيع"] ?? "")}</td>
+          <td style="white-space:normal; min-width:220px">${esc(r["المؤلفون"] ?? "")}</td>
+          <td>${esc(r["سنة النشر"] ?? "")}</td>
+          <td style="white-space:normal; min-width:180px">${esc(r["الناشر"] ?? "")}</td>
+          <td>${esc(r["يعار / لا يعار"] ?? "")}</td>
+          <td>${esc(r["عام / مرجع"] ?? "")}</td>
+        </tr>
+      `);
+    }
+  }
+};
+
+// ====== الحجز والآراء (Apps Script) ======
+const App = {
+  api(){
+    // يستخدم الإعدادات إن وجدت، وإلا يستخدم الرابط الافتراضي المدموج
+    const saved = (localStorage.getItem("rc_api")||"").trim();
+    return saved || DEFAULT_API_URL;
+  },
+
+  async refreshBookings(){
+    try{
+      UI.setStatus("تحميل الحجوزات...");
+      const base = App.api();
+
+      // GET
+      const bookings = await fetch(`${base}?action=listBookings`, {cache:"no-store"}).then(r=>r.json());
+      const feedback = await fetch(`${base}?action=listFeedback`, {cache:"no-store"}).then(r=>r.json());
+
+      State.bookings = Array.isArray(bookings) ? bookings : [];
+      State.feedback = Array.isArray(feedback) ? feedback : [];
+
+      UI.setStatus("متصل ✅");
+      UI.renderSchedule();
+      UI.renderReport();
+    }catch(e){
+      UI.setStatus("غير متصل");
+      State.bookings = []; State.feedback = [];
+      UI.renderSchedule(); UI.renderReport();
+      alert("تعذر الاتصال بالسكربت. تأكد من النشر (Anyone) والرابط /exec.\n\n" + e.message);
+    }
+  },
+
+  async submitBooking(){
+    try{
+      const payload = {
+        createdAt: new Date().toISOString(),
+        name: $("b_name").value.trim(),
+        subject: $("b_subject").value.trim(),
+        grade: $("b_grade").value.trim(),
+        lessonTitle: $("b_lessonTitle").value.trim(),
+        purpose: $("b_purpose").value.trim(),
+        bookingDate: $("b_date").value,
+        period: $("b_period").value,
+        notes: $("b_notes").value.trim()
+      };
+
+      const required = ["name","subject","grade","lessonTitle","purpose","bookingDate","period"];
+      for(const k of required) if(!payload[k]) throw new Error("الرجاء تعبئة جميع الحقول");
+
+      // ✅ حل Failed to fetch: text/plain (بدون preflight)
+      const res = await fetch(App.api(), {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body: JSON.stringify({ action:"addBooking", payload })
+      }).then(r=>r.json());
+
+      if(!res.ok) throw new Error(res.error || "فشل إرسال الحجز");
+
+      alert("تم إرسال الحجز ✅");
+      await App.refreshBookings();
+    }catch(e){
+      alert(e.message);
+    }
+  },
+
+  async submitFeedback(){
+    try{
+      const payload = {
+        createdAt: new Date().toISOString(),
+        date: new Date().toISOString().slice(0,10),
+        type: $("f_type").value,
+        rate: $("f_rate").value,
+        name: $("f_name").value.trim(),
+        text: $("f_text").value.trim()
+      };
+
+      if(!payload.text) throw new Error("اكتب الرأي/الملاحظة");
+
+      // ✅ حل Failed to fetch: text/plain (بدون preflight)
+      const res = await fetch(App.api(), {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body: JSON.stringify({ action:"addFeedback", payload })
+      }).then(r=>r.json());
+
+      if(!res.ok) throw new Error(res.error || "فشل إرسال الرأي");
+
+      $("f_text").value = "";
+      $("f_name").value = "";
+      alert("تم إرسال الرأي ✅");
+      await App.refreshBookings();
+    }catch(e){
+      alert(e.message);
+    }
+  }
+};
+
+function esc(s){
+  return String(s ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+}
+
+window.UI = UI;
+window.App = App;
+window.Custody = Custody;
+
+window.addEventListener("load", ()=>{
+  UI.init();
+  // تحميل الحجوزات تلقائياً عند فتح الموقع
+  App.refreshBookings();
+});
