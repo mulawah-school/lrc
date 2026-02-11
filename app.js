@@ -1,12 +1,11 @@
-console.log("app.js loaded ✅ (RC)");
+console.log("app.js loaded ✅ (fixed)");
 
-// ===== إعدادات عامة =====
+// ===== إعدادات =====
 const DEFAULT_API_URL =
   "https://script.google.com/macros/s/AKfycbymGWtNJh4i4-Y4FugOqu_X3cpwOWPdodE7U-On7KK7hyGda7s9Nr1xkWb-TaM9tqk5mA/exec";
 
 const PERIODS = [1,2,3,4,5,6,7,8];
 
-// أقسام العهدة (عدّلي أسماء الملفات داخل data/ حسب ملفاتكم)
 const DEPARTMENTS = [
   "المعارف العامة","اللغة الانجليزية","اللغات","الفنون","الفلسفة وعلم النفس",
   "العلوم التطبيقية","العلوم البحته","العلوم الاجتماعية","الديانات",
@@ -32,8 +31,7 @@ const DEPT_FILES = {
 
 const State = { bookings: [], feedback: [] };
 
-// ===== أدوات مساعدة =====
-const $ = (id) => document.getElementById(id);
+const $ = (id)=>document.getElementById(id);
 
 function on(id, event, handler){
   const el = $(id);
@@ -47,7 +45,6 @@ function esc(s){
     .replaceAll(">","&gt;").replaceAll('"',"&quot;");
 }
 
-// يدعم yyyy-mm-dd و dd/mm/yyyy و ISO (2026-02-11T...)
 function normalizeDate(v){
   if(!v) return "";
   const s = String(v).trim();
@@ -73,7 +70,6 @@ function toast(msg, type="success"){
     box.style.gap = "8px";
     document.body.appendChild(box);
   }
-
   const t = document.createElement("div");
   t.textContent = msg;
   t.style.padding = "10px 12px";
@@ -83,27 +79,26 @@ function toast(msg, type="success"){
   t.style.border = "1px solid #e5e7eb";
   t.style.background = type==="success" ? "#ecfdf5" : type==="warn" ? "#fffbeb" : "#fef2f2";
   t.style.color = type==="success" ? "#065f46" : type==="warn" ? "#92400e" : "#991b1b";
-
   box.appendChild(t);
   setTimeout(()=>{ t.style.opacity="0"; t.style.transition="opacity .3s"; }, 2500);
   setTimeout(()=>{ t.remove(); }, 2900);
 }
 
-// ===== واجهة المستخدم =====
+// ===== UI =====
 const UI = {
-  api(){
+  api: function(){
     const saved = (localStorage.getItem("rc_api")||"").trim();
     return saved || DEFAULT_API_URL;
   },
 
-  setStatus(t){
+  setStatus: function(t){
     if($("statusText")) $("statusText").textContent = t;
   },
 
-  openSettings(){ $("settingsDlg")?.showModal?.(); },
-  closeSettings(){ $("settingsDlg")?.close?.(); },
+  openSettings: function(){ $("settingsDlg")?.showModal?.(); },
+  closeSettings: function(){ $("settingsDlg")?.close?.(); },
 
-  showTab(name){
+  showTab: function(name){
     ["booking","schedule","custody","feedback","report"].forEach(id=>{
       const el = $("tab-"+id);
       if(el) el.hidden = (id !== name);
@@ -112,13 +107,13 @@ const UI = {
     if(name==="report") UI.renderReport();
   },
 
-  toSunday(date){
+  toSunday: function(date){
     const d = new Date(date);
-    d.setDate(d.getDate() - d.getDay()); // Sunday
+    d.setDate(d.getDate() - d.getDay());
     return d;
   },
 
-  shiftWeek(days){
+  shiftWeek: function(days){
     const ws = $("weekStart");
     if(!ws) return;
     const d = new Date(ws.value);
@@ -127,8 +122,12 @@ const UI = {
     UI.renderWeek();
   },
 
-  init(){
-    // periods select
+  init: function(){
+
+    // ✅ منع أي إرسال تلقائي للنماذج (حتى لا تظهر رسالة المتصفح "أكمل هذا الحقل")
+    document.querySelectorAll("form").forEach(f=>{
+      f.addEventListener("submit", (e)=>{ e.preventDefault(); e.stopPropagation(); }, true);
+    });
     if($("b_period")){
       $("b_period").innerHTML =
         `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
@@ -140,7 +139,6 @@ const UI = {
 
     if($("apiUrl")) $("apiUrl").value = (localStorage.getItem("rc_api")||"").trim();
 
-    // nav
     on("btnBooking","click", ()=>UI.showTab("booking"));
     on("btnSchedule","click", ()=>UI.showTab("schedule"));
     on("btnCustody","click", ()=>UI.showTab("custody"));
@@ -149,7 +147,6 @@ const UI = {
 
     on("btnSettings","click", UI.openSettings);
     on("btnCloseSettings","click", UI.closeSettings);
-
     on("btnSaveSettings","click", ()=>{
       localStorage.setItem("rc_api", ($("apiUrl")?.value || "").trim());
       UI.closeSettings();
@@ -157,31 +154,26 @@ const UI = {
       App.refreshBookings();
     });
 
-    // booking actions
-    on("btnSubmitBooking","click", App.submitBooking);
-    on("btnRefreshBookings","click", App.refreshBookings);
+    on("btnSubmitBooking","click", ()=>App.submitBooking());
+    on("btnRefreshBookings","click", ()=>App.refreshBookings());
 
-    // week controls
     on("btnPrevWeek","click", ()=>UI.shiftWeek(-7));
     on("btnNextWeek","click", ()=>UI.shiftWeek(7));
-    on("btnRefreshWeek","click", UI.renderWeek);
-    on("weekStart","change", UI.renderWeek);
+    on("btnRefreshWeek","click", ()=>UI.renderWeek());
+    on("weekStart","change", ()=>UI.renderWeek());
 
-    // feedback
-    on("btnSubmitFeedback","click", App.submitFeedback);
+    on("btnSubmitFeedback","click", ()=>App.submitFeedback());
 
-    // custody
     Custody.init();
-    on("btnReloadCustody","click", Custody.reloadActive);
-    $("c_q")?.addEventListener?.("input", Custody.render);
+    on("btnReloadCustody","click", ()=>Custody.reloadActive());
+    $("c_q")?.addEventListener?.("input", ()=>Custody.render());
 
     UI.setStatus("جاهز");
     UI.showTab("booking");
-
     App.refreshBookings();
   },
 
-  renderWeek(){
+  renderWeek: function(){
     const ws = $("weekStart");
     if(!ws) return;
 
@@ -203,13 +195,11 @@ const UI = {
         <tr>
           <th class="dayCol">اليوم</th>
           ${PERIODS.map(p=>`<th>الحصة ${p}</th>`).join("")}
-        </tr>
-      `;
+        </tr>`;
     }
 
     const arDays = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 
-    // map: date__period => [bookings]
     const map = {};
     for(const b of State.bookings){
       const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
@@ -249,31 +239,11 @@ const UI = {
         <tr>
           <td class="dayCol">${dayName}<br><span style="font-weight:600;color:#6b7280">${dateStr}</span></td>
           ${cells}
-        </tr>
-      `);
+        </tr>`);
     }
   },
 
-  renderReport(){
-    // اختياري: إذا عناصر التقرير موجودة في HTML
-    const tBookings = $("r_totalBookings");
-    const tToday = $("r_todayBookings");
-    const tConf = $("r_conflicts");
-    if(!tBookings && !tToday && !tConf) return;
-
-    const today = new Date().toISOString().slice(0,10);
-    const keyCount = {};
-    for(const b of State.bookings){
-      const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
-      const bp = String(b["الحصة"] ?? b.period ?? "");
-      keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`]||0)+1;
-    }
-    const conflicts = Object.values(keyCount).filter(v=>v>1).length;
-
-    if(tBookings) tBookings.textContent = State.bookings.length;
-    if(tToday) tToday.textContent = State.bookings.filter(b => normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "") === today).length;
-    if(tConf) tConf.textContent = conflicts;
-  }
+  renderReport: function(){ /* اختياري */ }
 };
 
 // ===== العهدة =====
@@ -281,7 +251,7 @@ const Custody = {
   activeDept: "",
   rows: [],
 
-  init(){
+  init: function(){
     const chips = $("custodyChips");
     if(!chips) return;
 
@@ -300,7 +270,7 @@ const Custody = {
     });
   },
 
-  async loadActive(){
+  loadActive: async function(){
     const path = DEPT_FILES[Custody.activeDept];
     if(!path) return toast("ملف القسم غير معرف", "error");
 
@@ -321,13 +291,13 @@ const Custody = {
     }
   },
 
-  async reloadActive(){
+  reloadActive: async function(){
     if(!Custody.activeDept) return toast("اختر قسم أولاً", "warn");
     await Custody.loadActive();
     Custody.render();
   },
 
-  render(){
+  render: function(){
     const body = $("custodyBody");
     if(!body) return;
 
@@ -370,15 +340,14 @@ const Custody = {
           <td style="white-space:normal;min-width:180px">${esc(r["الناشر"] ?? "")}</td>
           <td>${esc(r["يعار / لا يعار"] ?? "")}</td>
           <td>${esc(r["عام / مرجع"] ?? "")}</td>
-        </tr>
-      `);
+        </tr>`);
     }
   }
 };
 
 // ===== التطبيق =====
 const App = {
-  async refreshBookings(){
+  refreshBookings: async function(){
     try{
       UI.setStatus("تحميل الحجوزات...");
       const base = UI.api();
@@ -398,7 +367,7 @@ const App = {
     }
   },
 
-  async submitBooking(){
+  submitBooking: async function(){
     try{
       const name = ($("b_name")?.value || "").trim();
       const subject = ($("b_subject")?.value || "").trim();
@@ -406,11 +375,9 @@ const App = {
       const lessonTitle = ($("b_lessonTitle")?.value || "").trim();
       const purpose = ($("b_purpose")?.value || "").trim();
 
-      // التاريخ قد يظهر dd/mm/yyyy لكنه يُرسل yyyy-mm-dd
       const bookingDateRaw = $("b_date")?.value || "";
       const bookingDate = normalizeDate(bookingDateRaw);
 
-      // الحصة: أحياناً value تكون فارغة لكن النص يحتوي الرقم
       const periodEl = $("b_period");
       let periodStr = (periodEl?.value || "").trim();
       if(!periodStr && periodEl?.selectedIndex >= 0){
@@ -449,10 +416,8 @@ const App = {
         "ملاحظات": notes
       };
 
-      // تحقق تعارض
       const d = bookingDate;
       const p = String(period);
-
       const conflicts = State.bookings.filter(b=>{
         const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
         const bp = String(b["الحصة"] ?? b.period ?? "");
@@ -481,7 +446,6 @@ const App = {
 
       toast("تم الحجز بنجاح ✅", "success");
 
-      // تفريغ الخانات
       if($("b_name")) $("b_name").value = "";
       if($("b_subject")) $("b_subject").value = "";
       if($("b_grade")) $("b_grade").value = "";
@@ -498,9 +462,8 @@ const App = {
     }
   },
 
-  async submitFeedback(){
+  submitFeedback: async function(){
     try{
-      // إذا نموذج الآراء موجود
       const text = ($("f_text")?.value || "").trim();
       if(!text) return toast("اكتب الرأي/الملاحظة", "warn");
 
@@ -531,7 +494,7 @@ const App = {
   }
 };
 
-// ✅ تشغيل قسري للأيقونات (حتى لو حصل خطأ في جزء آخر)
+// ✅ تشغيل قسري للتنقل إذا تعطل أي ربط
 (function forceNav(){
   const go = (tab)=>{
     ["booking","schedule","custody","feedback","report"].forEach(id=>{
