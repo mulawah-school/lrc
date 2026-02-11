@@ -371,23 +371,33 @@ const Custody = {
 // ===== التطبيق =====
 const App = {
   refreshBookings: async function(){
+    // ✅ جلب الحجوزات (أساسي) + جلب الآراء (اختياري)
+    const base = UI.api();
+    UI.setStatus("تحميل الحجوزات...");
+
+    // 1) الحجوزات (لازم)
     try{
-      UI.setStatus("تحميل الحجوزات...");
-      const base = UI.api();
-
       const bookings = await fetch(`${base}?action=listBookings`, {cache:"no-store"}).then(r=>r.json());
-      const feedback = await fetch(`${base}?action=listFeedback`, {cache:"no-store"}).then(r=>r.json());
-
       State.bookings = Array.isArray(bookings) ? bookings : [];
-      State.feedback = Array.isArray(feedback) ? feedback : [];
-
       UI.setStatus("متصل ✅");
-      UI.renderWeek();
-      UI.renderReport();
     }catch(e){
       UI.setStatus("غير متصل");
-      toast("تعذر الاتصال بالسكربت. تأكد من النشر Anyone ورابط /exec.", "error");
+      toast("تعذر تحميل الحجوزات من السكربت. تأكد من النشر Anyone ورابط /exec.", "error");
+      return; // لا نكمل
     }
+
+    // 2) الآراء (اختياري — لا يوقف الموقع إذا غير متوفر)
+    try{
+      const feedback = await fetch(`${base}?action=listFeedback`, {cache:"no-store"}).then(r=>r.json());
+      State.feedback = Array.isArray(feedback) ? feedback : [];
+    }catch(e){
+      State.feedback = [];
+      // لا نعرض خطأ، فقط نتجاهل
+      console.warn("listFeedback غير متوفر أو فشل:", e);
+    }
+
+    UI.renderWeek();
+    UI.renderReport();
   },
 
   submitBooking: async function(){
