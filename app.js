@@ -399,108 +399,104 @@ const App = {
   },
 
   async submitBooking(){
-  try{
-    const name = ($("b_name")?.value || "").trim();
-    const subject = ($("b_subject")?.value || "").trim();
-    const grade = ($("b_grade")?.value || "").trim();
-    const lessonTitle = ($("b_lessonTitle")?.value || "").trim();
-    const purpose = ($("b_purpose")?.value || "").trim();
+    try{
+      const name = ($("b_name")?.value || "").trim();
+      const subject = ($("b_subject")?.value || "").trim();
+      const grade = ($("b_grade")?.value || "").trim();
+      const lessonTitle = ($("b_lessonTitle")?.value || "").trim();
+      const purpose = ($("b_purpose")?.value || "").trim();
 
-    // ✅ التاريخ (type=date) قيمته تكون yyyy-mm-dd حتى لو يظهر dd/mm/yyyy
-    const bookingDateRaw = $("b_date")?.value || "";
-    const bookingDate = normalizeDate(bookingDateRaw);
+      // التاريخ قد يظهر dd/mm/yyyy لكنه يُرسل yyyy-mm-dd
+      const bookingDateRaw = $("b_date")?.value || "";
+      const bookingDate = normalizeDate(bookingDateRaw);
 
-    // ✅ الحصة: أحيانًا value تكون فاضية لكن النص يظهر رقم
-    const periodEl = $("b_period");
-    let periodStr = (periodEl?.value || "").trim();
+      // الحصة: أحياناً value تكون فارغة لكن النص يحتوي الرقم
+      const periodEl = $("b_period");
+      let periodStr = (periodEl?.value || "").trim();
+      if(!periodStr && periodEl?.selectedIndex >= 0){
+        const optText = (periodEl.options[periodEl.selectedIndex]?.text || "").trim();
+        const m = optText.match(/\d+/);
+        if(m) periodStr = m[0];
+      }
+      const period = parseInt(periodStr, 10);
 
-    if(!periodStr && periodEl?.selectedIndex >= 0){
-      const optText = (periodEl.options[periodEl.selectedIndex]?.text || "").trim();
-      // يحاول يلقط رقم من النص
-      const m = optText.match(/\d+/);
-      if(m) periodStr = m[0];
-    }
+      const notes = ($("b_notes")?.value || "").trim();
 
-    const period = parseInt(periodStr, 10);
-    const notes = ($("b_notes")?.value || "").trim();
+      const missing = [];
+      if(!name) missing.push("الاسم");
+      if(!subject) missing.push("المادة");
+      if(!grade) missing.push("الصف");
+      if(!lessonTitle) missing.push("عنوان الدرس");
+      if(!purpose) missing.push("الهدف من الحجز");
+      if(!bookingDate) missing.push("تاريخ الحجز");
+      if(!(period >= 1 && period <= 8)) missing.push("الحصة");
 
-    // ✅ قائمة النواقص بدقة
-    const missing = [];
-    if(!name) missing.push("الاسم");
-    if(!subject) missing.push("المادة");
-    if(!grade) missing.push("الصف");
-    if(!lessonTitle) missing.push("عنوان الدرس");
-    if(!purpose) missing.push("الهدف من الحجز");
-    if(!bookingDate) missing.push("تاريخ الحجز");
-    if(!(period >= 1 && period <= 8)) missing.push("الحصة");
-
-    if(missing.length){
-      toast("الرجاء تعبئة/اختيار: " + missing.join("، "), "error");
-      console.log("DEBUG:", {name,subject,grade,lessonTitle,purpose,bookingDateRaw,bookingDate,periodStr,period,notes});
-      return;
-    }
-
-    const payload = {
-      "تاريخ الإنشاء": new Date().toISOString(),
-      "الاسم": name,
-      "المادة": subject,
-      "الصف": grade,
-      "عنوان الدرس": lessonTitle,
-      "الهدف من الحجز": purpose,
-      "تاريخ الحجز": bookingDate,
-      "الحصة": period,
-      "ملاحظات": notes
-    };
-
-    // ✅ تعارض
-    const d = bookingDate;
-    const p = String(period);
-    const conflicts = State.bookings.filter(b=>{
-      const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
-      const bp = String(b["الحصة"] ?? b.period ?? "");
-      return bd===d && bp===p;
-    });
-
-    if(conflicts.length >= 1){
-      const names = conflicts.map(x=> (x["الاسم"] ?? x.name ?? "")).filter(Boolean).join(" ، ");
-      const ok = confirm(`⚠️ هذه الحصة محجوزة بالفعل.\nالمحجوز: ${names}\n\nهل تريد تسجيل الحجز كتعارض؟`);
-      if(!ok){
-        toast("تم إلغاء الحجز", "warn");
+      if(missing.length){
+        toast("الرجاء تعبئة/اختيار: " + missing.join("، "), "error");
+        console.log("DEBUG:", {name,subject,grade,lessonTitle,purpose,bookingDateRaw,bookingDate,periodStr,period,notes});
         return;
       }
+
+      const payload = {
+        "تاريخ الإنشاء": new Date().toISOString(),
+        "الاسم": name,
+        "المادة": subject,
+        "الصف": grade,
+        "عنوان الدرس": lessonTitle,
+        "الهدف من الحجز": purpose,
+        "تاريخ الحجز": bookingDate,
+        "الحصة": period,
+        "ملاحظات": notes
+      };
+
+      // تحقق تعارض
+      const d = bookingDate;
+      const p = String(period);
+
+      const conflicts = State.bookings.filter(b=>{
+        const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
+        const bp = String(b["الحصة"] ?? b.period ?? "");
+        return bd===d && bp===p;
+      });
+
+      if(conflicts.length >= 1){
+        const names = conflicts.map(x=> (x["الاسم"] ?? x.name ?? "")).filter(Boolean).join(" ، ");
+        const ok = confirm(`⚠️ هذه الحصة محجوزة بالفعل.\nالمحجوز: ${names}\n\nهل تريد تسجيل الحجز كتعارض؟`);
+        if(!ok){
+          toast("تم إلغاء الحجز", "warn");
+          return;
+        }
+      }
+
+      const res = await fetch(UI.api(), {
+        method:"POST",
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        body: JSON.stringify({ action:"addBooking", payload })
+      }).then(r=>r.json());
+
+      if(!res.ok){
+        toast(res.error || "فشل إرسال الحجز", "error");
+        return;
+      }
+
+      toast("تم الحجز بنجاح ✅", "success");
+
+      // تفريغ الخانات
+      if($("b_name")) $("b_name").value = "";
+      if($("b_subject")) $("b_subject").value = "";
+      if($("b_grade")) $("b_grade").value = "";
+      if($("b_lessonTitle")) $("b_lessonTitle").value = "";
+      if($("b_purpose")) $("b_purpose").value = "";
+      if($("b_notes")) $("b_notes").value = "";
+      if($("b_period")) $("b_period").value = "";
+      if($("b_date")) $("b_date").value = new Date().toISOString().slice(0,10);
+
+      await App.refreshBookings();
+    }catch(e){
+      console.error(e);
+      toast("خطأ غير متوقع أثناء الحجز", "error");
     }
-
-    // ✅ إرسال
-    const res = await fetch(UI.api(), {
-      method:"POST",
-      headers:{ "Content-Type":"text/plain;charset=utf-8" },
-      body: JSON.stringify({ action:"addBooking", payload })
-    }).then(r=>r.json());
-
-    if(!res.ok){
-      toast(res.error || "فشل إرسال الحجز", "error");
-      return;
-    }
-
-    toast("تم الحجز بنجاح ✅", "success");
-
-    // ✅ تفريغ
-    $("b_name").value = "";
-    $("b_subject").value = "";
-    $("b_grade").value = "";
-    $("b_lessonTitle").value = "";
-    $("b_purpose").value = "";
-    $("b_notes").value = "";
-    $("b_period").value = "";
-    $("b_date").value = new Date().toISOString().slice(0,10);
-
-    await App.refreshBookings();
-
-  }catch(e){
-    console.error(e);
-    toast("خطأ غير متوقع أثناء الحجز", "error");
-  }
-}
+  },
 
   async submitFeedback(){
     try{
