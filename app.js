@@ -1,8 +1,3 @@
-// برنامج مركز المصادر (واجهة GitHub Pages)
-// ✅ العهدة: 14 ملف Excel داخل data/
-// ✅ الحجز + آراء: تخزين مشترك عبر Google Sheets + Apps Script Web App
-// ✅ حل Failed to fetch: POST باستخدام text/plain لتجنب CORS preflight
-
 const DEFAULT_API_URL =
   "https://script.google.com/macros/s/AKfycbymGWtNJh4i4-Y4FugOqu_X3cpwOWPdodE7U-On7KK7hyGda7s9Nr1xkWb-TaM9tqk5mA/exec";
 
@@ -36,24 +31,51 @@ const $ = (id)=>document.getElementById(id);
 
 const UI = {
   init(){
+    // تعبئة الحصص
     $("b_period").innerHTML = `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
     $("s_period").innerHTML += PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
 
+    // تواريخ افتراضية
     const today = new Date().toISOString().slice(0,10);
     $("b_date").value = today;
     $("s_date").value = today;
 
-    // ضع الرابط الافتراضي داخل الإعدادات تلقائياً (مع السماح بالتعديل)
-    const saved = localStorage.getItem("rc_api");
-    $("apiUrl").value = (saved && saved.trim()) ? saved.trim() : DEFAULT_API_URL;
+    // رابط API (مدموج + قابل للتغيير من الإعدادات)
+    const saved = (localStorage.getItem("rc_api")||"").trim();
+    $("apiUrl").value = saved || "";
 
-    Custody.init();
+    // ربط الأزرار (بدون onclick)
+    $("btnBooking").addEventListener("click", ()=>UI.showTab("booking"));
+    $("btnSchedule").addEventListener("click", ()=>UI.showTab("schedule"));
+    $("btnCustody").addEventListener("click", ()=>UI.showTab("custody"));
+    $("btnFeedback").addEventListener("click", ()=>UI.showTab("feedback"));
+    $("btnReport").addEventListener("click", ()=>UI.showTab("report"));
+    $("btnSettings").addEventListener("click", UI.openSettings);
 
+    $("btnSaveSettings").addEventListener("click", UI.saveSettings);
+    $("btnCloseSettings").addEventListener("click", UI.closeSettings);
+
+    $("btnSubmitBooking").addEventListener("click", App.submitBooking);
+    $("btnRefreshBookings").addEventListener("click", App.refreshBookings);
+
+    $("btnSubmitFeedback").addEventListener("click", App.submitFeedback);
+
+    $("btnApplySchedule").addEventListener("click", UI.renderSchedule);
+    $("s_q").addEventListener("input", UI.renderSchedule);
     $("s_date").addEventListener("change", UI.renderSchedule);
     $("s_period").addEventListener("change", UI.renderSchedule);
 
+    $("c_q").addEventListener("input", Custody.render);
+    $("btnReloadCustody").addEventListener("click", Custody.reloadActive);
+
+    // العهدة
+    Custody.init();
+
     UI.showTab("booking");
     UI.setStatus("جاهز");
+
+    // تحميل الحجوزات تلقائيًا
+    App.refreshBookings();
   },
 
   showTab(name){
@@ -69,31 +91,32 @@ const UI = {
   openSettings(){ $("settingsDlg").showModal(); },
   closeSettings(){ $("settingsDlg").close(); },
   saveSettings(){
-    localStorage.setItem("rc_api", $("apiUrl").value.trim());
+    const v = ($("apiUrl").value||"").trim();
+    localStorage.setItem("rc_api", v);
     UI.closeSettings();
     App.refreshBookings();
+  },
+
+  api(){
+    const saved = (localStorage.getItem("rc_api")||"").trim();
+    return saved || DEFAULT_API_URL;
   },
 
   renderSchedule(){
     const d = $("s_date").value;
     const p = $("s_period").value;
-    const q = ($("s_q").value || "").trim().toLowerCase();
+    const q = ($("s_q").value||"").trim().toLowerCase();
 
     const keyCount = {};
     for(const b of State.bookings){
-      const key = `${b["تاريخ_الحجز"] ?? b.bookingDate}__${b["الحصة"] ?? b.period}`;
-      keyCount[key] = (keyCount[key]||0)+1;
+      const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
+      const bp = String(b["الحصة"] ?? b.period ?? "");
+      keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`]||0)+1;
     }
 
     const rows = State.bookings
-      .filter(b => {
-        const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
-        return !d || bd === String(d);
-      })
-      .filter(b => {
-        const bp = String(b["الحصة"] ?? b.period ?? "");
-        return !p || bp === String(p);
-      })
+      .filter(b => !d || String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "") === String(d))
+      .filter(b => !p || String(b["الحصة"] ?? b.period ?? "") === String(p))
       .filter(b => {
         if(!q) return true;
         const name = String(b["الاسم"] ?? b.name ?? "").toLowerCase();
@@ -110,8 +133,7 @@ const UI = {
     for(const b of rows){
       const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
       const bp = String(b["الحصة"] ?? b.period ?? "");
-      const key = `${bd}__${bp}`;
-      const conflict = (keyCount[key]||0) > 1;
+      const conflict = (keyCount[`${bd}__${bp}`]||0) > 1;
 
       body.insertAdjacentHTML("beforeend", `
         <tr>
@@ -134,15 +156,12 @@ const UI = {
     for(const b of State.bookings){
       const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
       const bp = String(b["الحصة"] ?? b.period ?? "");
-      const key = `${bd}__${bp}`;
-      keyCount[key] = (keyCount[key]||0)+1;
+      keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`]||0)+1;
     }
     const conflicts = Object.values(keyCount).filter(v=>v>1).length;
 
-    const todayCount = State.bookings.filter(b => String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "") === today).length;
-
     $("r_totalBookings").textContent = State.bookings.length;
-    $("r_todayBookings").textContent = todayCount;
+    $("r_todayBookings").textContent = State.bookings.filter(b => String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "") === today).length;
     $("r_conflicts").textContent = conflicts;
 
     $("r_totalFeedback").textContent = State.feedback.length;
@@ -151,7 +170,6 @@ const UI = {
   }
 };
 
-// ====== العهدة: قراءة 14 ملف Excel حسب القسم ======
 const Custody = {
   activeDept: "",
   rows: [],
@@ -174,9 +192,8 @@ const Custody = {
   },
 
   async loadActive(){
-    const dept = Custody.activeDept;
-    const path = DEPT_FILES[dept];
-    if(!path) { alert("لا يوجد ملف مرتبط بهذا القسم. عدّل DEPT_FILES في app.js"); return; }
+    const path = DEPT_FILES[Custody.activeDept];
+    if(!path) return alert("ملف القسم غير معرف في DEPT_FILES");
 
     try{
       UI.setStatus("تحميل ملف القسم...");
@@ -186,7 +203,7 @@ const Custody = {
       const wb = XLSX.read(buf, {type:"array"});
       const ws = wb.Sheets[wb.SheetNames[0]];
       Custody.rows = XLSX.utils.sheet_to_json(ws, {defval:""});
-      UI.setStatus(`تم تحميل ${dept} ✅`);
+      UI.setStatus(`تم تحميل ${Custody.activeDept} ✅`);
     }catch(err){
       Custody.rows = [];
       UI.setStatus("فشل التحميل");
@@ -195,21 +212,21 @@ const Custody = {
   },
 
   async reloadActive(){
-    if(!Custody.activeDept) { alert("اختر قسم أولاً"); return; }
+    if(!Custody.activeDept) return alert("اختر قسم أولاً");
     await Custody.loadActive();
     Custody.render();
   },
 
   render(){
-    const q = ($("c_q").value || "").trim().toLowerCase();
+    const q = ($("c_q").value||"").trim().toLowerCase();
     const body = $("custodyBody");
     body.innerHTML = "";
 
-    if(!Custody.activeDept){
+    if(!Custody.activeDept) {
       body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">اختر قسم لعرض الكتب</td></tr>`;
       return;
     }
-    if(!Custody.rows.length){
+    if(!Custody.rows.length) {
       body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">لا توجد بيانات في ملف هذا القسم</td></tr>`;
       return;
     }
@@ -223,7 +240,7 @@ const Custody = {
       return !q || title.includes(q) || authors.includes(q) || topics.includes(q) || generalNo.includes(q) || reqNo.includes(q);
     });
 
-    if(rows.length === 0){
+    if(!rows.length){
       body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">لا توجد نتائج</td></tr>`;
       return;
     }
@@ -234,11 +251,11 @@ const Custody = {
           <td>${esc(r["الرقم العام"] ?? "")}</td>
           <td>${esc(r["رقم التصنيف"] ?? "")}</td>
           <td>${esc(r["رقم الطلب"] ?? "")}</td>
-          <td style="white-space:normal; min-width:260px">${esc(r["العنوان"] ?? "")}</td>
-          <td style="white-space:normal; min-width:220px">${esc(r["المواضيع"] ?? "")}</td>
-          <td style="white-space:normal; min-width:220px">${esc(r["المؤلفون"] ?? "")}</td>
+          <td style="white-space:normal;min-width:260px">${esc(r["العنوان"] ?? "")}</td>
+          <td style="white-space:normal;min-width:220px">${esc(r["المواضيع"] ?? "")}</td>
+          <td style="white-space:normal;min-width:220px">${esc(r["المؤلفون"] ?? "")}</td>
           <td>${esc(r["سنة النشر"] ?? "")}</td>
-          <td style="white-space:normal; min-width:180px">${esc(r["الناشر"] ?? "")}</td>
+          <td style="white-space:normal;min-width:180px">${esc(r["الناشر"] ?? "")}</td>
           <td>${esc(r["يعار / لا يعار"] ?? "")}</td>
           <td>${esc(r["عام / مرجع"] ?? "")}</td>
         </tr>
@@ -247,20 +264,12 @@ const Custody = {
   }
 };
 
-// ====== الحجز والآراء (Apps Script) ======
 const App = {
-  api(){
-    // يستخدم الإعدادات إن وجدت، وإلا يستخدم الرابط الافتراضي المدموج
-    const saved = (localStorage.getItem("rc_api")||"").trim();
-    return saved || DEFAULT_API_URL;
-  },
-
   async refreshBookings(){
     try{
       UI.setStatus("تحميل الحجوزات...");
-      const base = App.api();
+      const base = UI.api();
 
-      // GET
       const bookings = await fetch(`${base}?action=listBookings`, {cache:"no-store"}).then(r=>r.json());
       const feedback = await fetch(`${base}?action=listFeedback`, {cache:"no-store"}).then(r=>r.json());
 
@@ -272,9 +281,7 @@ const App = {
       UI.renderReport();
     }catch(e){
       UI.setStatus("غير متصل");
-      State.bookings = []; State.feedback = [];
-      UI.renderSchedule(); UI.renderReport();
-      alert("تعذر الاتصال بالسكربت. تأكد من النشر (Anyone) والرابط /exec.\n\n" + e.message);
+      alert("تعذر الاتصال بالسكربت. تأكد من النشر Anyone ورابط /exec.\n\n" + e.message);
     }
   },
 
@@ -295,20 +302,16 @@ const App = {
       const required = ["name","subject","grade","lessonTitle","purpose","bookingDate","period"];
       for(const k of required) if(!payload[k]) throw new Error("الرجاء تعبئة جميع الحقول");
 
-      // ✅ حل Failed to fetch: text/plain (بدون preflight)
-      const res = await fetch(App.api(), {
+      const res = await fetch(UI.api(), {
         method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        headers:{ "Content-Type":"text/plain;charset=utf-8" }, // ✅ يحل Failed to fetch
         body: JSON.stringify({ action:"addBooking", payload })
       }).then(r=>r.json());
 
       if(!res.ok) throw new Error(res.error || "فشل إرسال الحجز");
-
       alert("تم إرسال الحجز ✅");
       await App.refreshBookings();
-    }catch(e){
-      alert(e.message);
-    }
+    }catch(e){ alert(e.message); }
   },
 
   async submitFeedback(){
@@ -321,25 +324,19 @@ const App = {
         name: $("f_name").value.trim(),
         text: $("f_text").value.trim()
       };
-
       if(!payload.text) throw new Error("اكتب الرأي/الملاحظة");
 
-      // ✅ حل Failed to fetch: text/plain (بدون preflight)
-      const res = await fetch(App.api(), {
+      const res = await fetch(UI.api(), {
         method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" },
+        headers:{ "Content-Type":"text/plain;charset=utf-8" }, // ✅ يحل Failed to fetch
         body: JSON.stringify({ action:"addFeedback", payload })
       }).then(r=>r.json());
 
       if(!res.ok) throw new Error(res.error || "فشل إرسال الرأي");
-
-      $("f_text").value = "";
-      $("f_name").value = "";
+      $("f_text").value = ""; $("f_name").value = "";
       alert("تم إرسال الرأي ✅");
       await App.refreshBookings();
-    }catch(e){
-      alert(e.message);
-    }
+    }catch(e){ alert(e.message); }
   }
 };
 
@@ -351,8 +348,4 @@ window.UI = UI;
 window.App = App;
 window.Custody = Custody;
 
-window.addEventListener("load", ()=>{
-  UI.init();
-  // تحميل الحجوزات تلقائياً عند فتح الموقع
-  App.refreshBookings();
-});
+window.addEventListener("load", UI.init);
