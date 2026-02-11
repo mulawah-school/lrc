@@ -7,15 +7,13 @@
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-
 <body>
 <header>
   <div class="head">
     <div>
       <h1>برنامج مركز المصادر</h1>
-      <div class="sub">العهدة (14 ملف Excel) + الحجز (8 حصص) + جدول أسبوعي + آراء + تقرير</div>
+      <div class="sub">العهدة + الحجز + جدول أسبوعي + آراء + تقرير</div>
     </div>
-
     <div class="status">
       <span id="statusText">جاهز</span>
       <button class="ghost" id="btnBooking">الحجز</button>
@@ -30,13 +28,12 @@
 
 <main class="container">
 
-  <!-- الحجز -->
   <section class="card tab" id="tab-booking">
     <h2>حجز الحصص (8 حصص)</h2>
     <div class="grid">
       <div class="field"><label>الاسم</label><input id="b_name" placeholder="اسم المعلم/المعلمة"></div>
       <div class="field"><label>المادة</label><input id="b_subject"></div>
-      <div class="field"><label>الصف</label><input id="b_grade" placeholder="مثال: 7/أ"></div>
+      <div class="field"><label>الصف</label><input id="b_grade" placeholder="مثال: 5/1"></div>
 
       <div class="field wide"><label>عنوان الدرس</label><input id="b_lessonTitle"></div>
       <div class="field wide"><label>الهدف من الحجز</label><input id="b_purpose"></div>
@@ -51,29 +48,21 @@
       <button class="secondary" id="btnRefreshBookings">تحديث الحجوزات</button>
     </div>
 
-    <div class="hint">الحفظ المشترك يتم عبر Apps Script (الرابط مدموج داخل app.js). يمكن تغييره من الإعدادات.</div>
+    <div class="hint">يتم الحفظ المشترك عبر Google Apps Script. يمكن تغيير الرابط من (إعدادات التخزين).</div>
   </section>
 
-  <!-- جدول الحجز الأسبوعي (مثل الصورة) -->
   <section class="card tab" id="tab-schedule" hidden>
     <h2>جدول الحجز الأسبوعي</h2>
-
     <div class="toolbar">
       <button class="ghost" id="btnPrevWeek">⬅ الأسبوع السابق</button>
-
       <div class="field">
         <label>بداية الأسبوع (الأحد)</label>
         <input id="weekStart" type="date">
       </div>
-
       <button class="ghost" id="btnNextWeek">الأسبوع التالي ➡</button>
       <button class="ghost" id="btnRefreshWeek">تحديث</button>
     </div>
-
-    <div class="hint">
-      يظهر الحجز داخل خلية (اليوم × الحصة). إذا وُجد أكثر من حجز لنفس الخلية يظهر "تعارض".
-    </div>
-
+    <div class="hint">يظهر الحجز داخل خلية (اليوم × الحصة). إذا وُجد أكثر من حجز لنفس الخلية يظهر "تعارض".</div>
     <div class="tableWrap">
       <table id="weekTable">
         <thead id="weekHead"></thead>
@@ -82,18 +71,14 @@
     </div>
   </section>
 
-  <!-- العهدة -->
   <section class="card tab" id="tab-custody" hidden>
     <h2>العهدة (14 قسم)</h2>
-    <div class="hint">اضغط قسم لعرض ملف Excel الخاص به من مجلد <b>data/</b>.</div>
-
+    <div class="hint">ضع ملفات Excel للأقسام داخل مجلد <b>data/</b> ثم اضغط على القسم.</div>
     <div class="deptChips" id="custodyChips"></div>
-
     <div class="toolbar">
       <div class="field"><label>بحث داخل الكتب</label><input id="c_q" placeholder="العنوان/المؤلفون/المواضيع..."></div>
       <button class="ghost" id="btnReloadCustody">إعادة تحميل القسم</button>
     </div>
-
     <div class="tableWrap">
       <table>
         <thead>
@@ -107,7 +92,6 @@
     </div>
   </section>
 
-  <!-- آراء الزوار -->
   <section class="card tab" id="tab-feedback" hidden>
     <h2>آراء الزوار</h2>
     <div class="grid">
@@ -120,12 +104,9 @@
       <div class="field"><label>الاسم (اختياري)</label><input id="f_name"></div>
       <div class="field wide"><label>الرأي/الملاحظة</label><textarea id="f_text"></textarea></div>
     </div>
-    <div class="actions">
-      <button id="btnSubmitFeedback">إرسال الرأي</button>
-    </div>
+    <div class="actions"><button id="btnSubmitFeedback">إرسال الرأي</button></div>
   </section>
 
-  <!-- التقرير -->
   <section class="card tab" id="tab-report" hidden>
     <h2>التقرير</h2>
     <div class="reportGrid">
@@ -143,9 +124,9 @@
   <div class="card">
     <h2>إعدادات التخزين</h2>
     <div class="field">
-      <label>رابط Apps Script Web App (اختياري)</label>
+      <label>رابط Apps Script Web App</label>
       <input id="apiUrl" placeholder="اتركه فارغاً لاستخدام الرابط المدموج">
-      <div class="hint">إذا تركته فارغاً سيتم استخدام الرابط المدموج داخل app.js تلقائيًا.</div>
+      <div class="hint">إذا تركته فارغاً سيتم استخدام الرابط المدموج داخل app.js تلقائياً.</div>
     </div>
     <div class="actions">
       <button id="btnSaveSettings">حفظ</button>
