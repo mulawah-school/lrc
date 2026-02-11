@@ -13,7 +13,7 @@
   <div class="head">
     <div>
       <h1>برنامج مركز المصادر</h1>
-      <div class="sub">العهدة (14 ملف Excel) + الحجز (8 حصص) + جدول + آراء + تقرير</div>
+      <div class="sub">العهدة (14 ملف Excel) + الحجز (8 حصص) + جدول أسبوعي + آراء + تقرير</div>
     </div>
 
     <div class="status">
@@ -30,6 +30,7 @@
 
 <main class="container">
 
+  <!-- الحجز -->
   <section class="card tab" id="tab-booking">
     <h2>حجز الحصص (8 حصص)</h2>
     <div class="grid">
@@ -50,30 +51,38 @@
       <button class="secondary" id="btnRefreshBookings">تحديث الحجوزات</button>
     </div>
 
-    <div class="hint">الحفظ المشترك يتم عبر Apps Script (الرابط مدموج داخل app.js).</div>
+    <div class="hint">الحفظ المشترك يتم عبر Apps Script (الرابط مدموج داخل app.js). يمكن تغييره من الإعدادات.</div>
   </section>
 
+  <!-- جدول الحجز الأسبوعي (مثل الصورة) -->
   <section class="card tab" id="tab-schedule" hidden>
-    <h2>جدول الحجز اليومي</h2>
+    <h2>جدول الحجز الأسبوعي</h2>
+
     <div class="toolbar">
-      <div class="field"><label>تاريخ العرض</label><input id="s_date" type="date"></div>
-      <div class="field"><label>تصفية بالحصة</label><select id="s_period"><option value="">الكل</option></select></div>
-      <div class="field"><label>بحث</label><input id="s_q" placeholder="اسم/مادة/صف/درس"></div>
-      <button class="ghost" id="btnApplySchedule">تطبيق</button>
+      <button class="ghost" id="btnPrevWeek">⬅ الأسبوع السابق</button>
+
+      <div class="field">
+        <label>بداية الأسبوع (الأحد)</label>
+        <input id="weekStart" type="date">
+      </div>
+
+      <button class="ghost" id="btnNextWeek">الأسبوع التالي ➡</button>
+      <button class="ghost" id="btnRefreshWeek">تحديث</button>
+    </div>
+
+    <div class="hint">
+      يظهر الحجز داخل خلية (اليوم × الحصة). إذا وُجد أكثر من حجز لنفس الخلية يظهر "تعارض".
     </div>
 
     <div class="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th>الحصة</th><th>الاسم</th><th>المادة</th><th>الصف</th><th>عنوان الدرس</th><th>الهدف</th><th>الحالة</th>
-          </tr>
-        </thead>
-        <tbody id="scheduleBody"></tbody>
+      <table id="weekTable">
+        <thead id="weekHead"></thead>
+        <tbody id="weekBody"></tbody>
       </table>
     </div>
   </section>
 
+  <!-- العهدة -->
   <section class="card tab" id="tab-custody" hidden>
     <h2>العهدة (14 قسم)</h2>
     <div class="hint">اضغط قسم لعرض ملف Excel الخاص به من مجلد <b>data/</b>.</div>
@@ -98,6 +107,7 @@
     </div>
   </section>
 
+  <!-- آراء الزوار -->
   <section class="card tab" id="tab-feedback" hidden>
     <h2>آراء الزوار</h2>
     <div class="grid">
@@ -115,6 +125,7 @@
     </div>
   </section>
 
+  <!-- التقرير -->
   <section class="card tab" id="tab-report" hidden>
     <h2>التقرير</h2>
     <div class="reportGrid">
@@ -142,17 +153,6 @@
     </div>
   </div>
 </dialog>
-
-<!-- تشخيص: إذا لم يتم تحميل app.js -->
-<script>
-  window.addEventListener("load", () => {
-    setTimeout(() => {
-      if (!window.App || !window.UI) {
-        alert("⚠️ لم يتم تحميل ملف app.js. تأكد أنه موجود في root وبنفس الاسم (app.js) وبدون أحرف كبيرة.");
-      }
-    }, 800);
-  });
-</script>
 
 <script src="app.js"></script>
 </body>

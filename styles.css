@@ -52,3 +52,9 @@ tr:last-child td{border-bottom:none}
   background:#fff;color:#0f172a;font-weight:900;cursor:pointer
 }
 .deptChips button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+.cellBooked{background:#ecfdf5}
+.cellConflict{background:#fffbeb}
+.cellBooked .small{display:block;font-size:11px;color:#065f46;margin-top:4px}
+.cellConflict .small{display:block;font-size:11px;color:#92400e;margin-top:4px}
+.dayCol{background:#f2f6fb;font-weight:900}

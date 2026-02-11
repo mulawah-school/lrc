@@ -13,6 +13,7 @@ const DEPT_FILES = {
   "اللغة الانجليزية": "data/اللغة_الانجليزية.xlsx",
   "اللغات": "data/اللغات.xlsx",
   "الفنون": "data/الفنون.xlsx",
+  0:0,
   "الفلسفة وعلم النفس": "data/الفلسفة_وعلم_النفس.xlsx",
   "العلوم التطبيقية": "data/العلوم_التطبيقية.xlsx",
   "العلوم البحته": "data/العلوم_البحته.xlsx",
@@ -25,26 +26,31 @@ const DEPT_FILES = {
   "قسم14": "data/قسم14.xlsx"
 };
 
+// حذف المفتاح الغريب إن وُجد (احتياط)
+delete DEPT_FILES[0];
+
 const PERIODS = [1,2,3,4,5,6,7,8];
 const State = { bookings: [], feedback: [] };
 const $ = (id)=>document.getElementById(id);
 
 const UI = {
   init(){
-    // تعبئة الحصص
-    $("b_period").innerHTML = `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
-    $("s_period").innerHTML += PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
+    $("b_period").innerHTML =
+      `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
 
-    // تواريخ افتراضية
-    const today = new Date().toISOString().slice(0,10);
-    $("b_date").value = today;
-    $("s_date").value = today;
+    const today = new Date();
+    $("b_date").value = today.toISOString().slice(0,10);
 
-    // رابط API (مدموج + قابل للتغيير من الإعدادات)
-    const saved = (localStorage.getItem("rc_api")||"").trim();
-    $("apiUrl").value = saved || "";
+    // بداية الأسبوع = أقرب أحد
+    const day = today.getDay(); // 0 الأحد
+    const sunday = new Date(today);
+    sunday.setDate(today.getDate() - day);
+    $("weekStart").value = sunday.toISOString().slice(0,10);
 
-    // ربط الأزرار (بدون onclick)
+    const savedApi = (localStorage.getItem("rc_api")||"").trim();
+    $("apiUrl").value = savedApi || "";
+
+    // تبويبات
     $("btnBooking").addEventListener("click", ()=>UI.showTab("booking"));
     $("btnSchedule").addEventListener("click", ()=>UI.showTab("schedule"));
     $("btnCustody").addEventListener("click", ()=>UI.showTab("custody"));
@@ -52,29 +58,29 @@ const UI = {
     $("btnReport").addEventListener("click", ()=>UI.showTab("report"));
     $("btnSettings").addEventListener("click", UI.openSettings);
 
+    // إعدادات
     $("btnSaveSettings").addEventListener("click", UI.saveSettings);
     $("btnCloseSettings").addEventListener("click", UI.closeSettings);
 
+    // الحجز والآراء
     $("btnSubmitBooking").addEventListener("click", App.submitBooking);
     $("btnRefreshBookings").addEventListener("click", App.refreshBookings);
-
     $("btnSubmitFeedback").addEventListener("click", App.submitFeedback);
 
-    $("btnApplySchedule").addEventListener("click", UI.renderSchedule);
-    $("s_q").addEventListener("input", UI.renderSchedule);
-    $("s_date").addEventListener("change", UI.renderSchedule);
-    $("s_period").addEventListener("change", UI.renderSchedule);
-
-    $("c_q").addEventListener("input", Custody.render);
-    $("btnReloadCustody").addEventListener("click", Custody.reloadActive);
+    // جدول أسبوعي
+    $("btnPrevWeek").addEventListener("click", ()=>UI.shiftWeek(-7));
+    $("btnNextWeek").addEventListener("click", ()=>UI.shiftWeek(7));
+    $("btnRefreshWeek").addEventListener("click", UI.renderWeek);
+    $("weekStart").addEventListener("change", UI.renderWeek);
 
     // العهدة
     Custody.init();
+    $("c_q").addEventListener("input", Custody.render);
+    $("btnReloadCustody").addEventListener("click", Custody.reloadActive);
 
     UI.showTab("booking");
     UI.setStatus("جاهز");
 
-    // تحميل الحجوزات تلقائيًا
     App.refreshBookings();
   },
 
@@ -83,6 +89,7 @@ const UI = {
       const el = $("tab-"+id);
       el.hidden = (id !== name);
     }
+    if(name === "schedule") UI.renderWeek();
     if(name === "report") UI.renderReport();
   },
 
@@ -90,6 +97,7 @@ const UI = {
 
   openSettings(){ $("settingsDlg").showModal(); },
   closeSettings(){ $("settingsDlg").close(); },
+
   saveSettings(){
     const v = ($("apiUrl").value||"").trim();
     localStorage.setItem("rc_api", v);
@@ -102,56 +110,75 @@ const UI = {
     return saved || DEFAULT_API_URL;
   },
 
-  renderSchedule(){
-    const d = $("s_date").value;
-    const p = $("s_period").value;
-    const q = ($("s_q").value||"").trim().toLowerCase();
+  shiftWeek(days){
+    const d = new Date($("weekStart").value);
+    d.setDate(d.getDate() + days);
+    $("weekStart").value = d.toISOString().slice(0,10);
+    UI.renderWeek();
+  },
 
-    const keyCount = {};
+  // جدول أسبوعي مثل الصورة: الأحد→الخميس × 8 حصص
+  renderWeek(){
+    const start = new Date($("weekStart").value);
+    if (isNaN(start)) return;
+
+    const days = [];
+    for(let i=0;i<5;i++){
+      const d = new Date(start);
+      d.setDate(start.getDate()+i);
+      days.push(d.toISOString().slice(0,10));
+    }
+
+    $("weekHead").innerHTML = `
+      <tr>
+        <th class="dayCol">اليوم</th>
+        ${PERIODS.map(p=>`<th>الحصة ${p}</th>`).join("")}
+      </tr>
+    `;
+
+    const dayNames = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
+
+    const map = {};
     for(const b of State.bookings){
       const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
       const bp = String(b["الحصة"] ?? b.period ?? "");
-      keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`]||0)+1;
+      const key = `${bd}__${bp}`;
+      if(!map[key]) map[key]=[];
+      map[key].push(b);
     }
 
-    const rows = State.bookings
-      .filter(b => !d || String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "") === String(d))
-      .filter(b => !p || String(b["الحصة"] ?? b.period ?? "") === String(p))
-      .filter(b => {
-        if(!q) return true;
-        const name = String(b["الاسم"] ?? b.name ?? "").toLowerCase();
-        const subj = String(b["المادة"] ?? b.subject ?? "").toLowerCase();
-        const grade= String(b["الصف"] ?? b.grade ?? "").toLowerCase();
-        const lesson=String(b["عنوان_الدرس"] ?? b.lessonTitle ?? "").toLowerCase();
-        return name.includes(q) || subj.includes(q) || grade.includes(q) || lesson.includes(q);
-      })
-      .sort((a,b)=>Number(a["الحصة"] ?? a.period)-Number(b["الحصة"] ?? b.period));
+    const body = $("weekBody");
+    body.innerHTML = "";
 
-    const body = $("scheduleBody");
-    body.innerHTML = rows.length ? "" : `<tr><td colspan="7" style="text-align:center;color:#6b7280">لا توجد حجوزات</td></tr>`;
+    days.forEach((dateStr, idx)=>{
+      const cells = PERIODS.map(p=>{
+        const key = `${dateStr}__${p}`;
+        const items = map[key] || [];
+        if(items.length === 0) return `<td>—</td>`;
 
-    for(const b of rows){
-      const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
-      const bp = String(b["الحصة"] ?? b.period ?? "");
-      const conflict = (keyCount[`${bd}__${bp}`]||0) > 1;
+        if(items.length > 1){
+          const names = items.map(x=> (x["الاسم"] ?? x.name ?? "")).filter(Boolean).join(" ، ");
+          return `<td class="cellConflict"><span class="pill warn">تعارض</span><span class="small">${esc(names)}</span></td>`;
+        }
+
+        const one = items[0];
+        const name = one["الاسم"] ?? one.name ?? "";
+        const subject = one["المادة"] ?? one.subject ?? "";
+        const grade = one["الصف"] ?? one.grade ?? "";
+        return `<td class="cellBooked"><span class="pill ok">محجوز</span><span class="small">${esc(name)} • ${esc(subject)} • ${esc(grade)}</span></td>`;
+      }).join("");
 
       body.insertAdjacentHTML("beforeend", `
         <tr>
-          <td>${esc(bp)}</td>
-          <td>${esc(b["الاسم"] ?? b.name ?? "")}</td>
-          <td>${esc(b["المادة"] ?? b.subject ?? "")}</td>
-          <td>${esc(b["الصف"] ?? b.grade ?? "")}</td>
-          <td>${esc(b["عنوان_الدرس"] ?? b.lessonTitle ?? "")}</td>
-          <td>${esc(b["الهدف_من_الحجز"] ?? b.purpose ?? "")}</td>
-          <td>${conflict ? `<span class="pill warn">تعارض</span>` : `<span class="pill ok">محجوز</span>`}</td>
+          <td class="dayCol">${dayNames[idx]}<br><span style="font-weight:600;color:#6b7280">${dateStr}</span></td>
+          ${cells}
         </tr>
       `);
-    }
+    });
   },
 
   renderReport(){
     const today = new Date().toISOString().slice(0,10);
-
     const keyCount = {};
     for(const b of State.bookings){
       const bd = String(b["تاريخ_الحجز"] ?? b.bookingDate ?? "");
@@ -165,7 +192,9 @@ const UI = {
     $("r_conflicts").textContent = conflicts;
 
     $("r_totalFeedback").textContent = State.feedback.length;
-    const avg = State.feedback.length ? (State.feedback.reduce((s,f)=>s+(Number(f["التقييم"] ?? f.rate)||0),0)/State.feedback.length) : 0;
+    const avg = State.feedback.length
+      ? (State.feedback.reduce((s,f)=>s+(Number(f["التقييم"] ?? f.rate)||0),0)/State.feedback.length)
+      : 0;
     $("r_avgRate").textContent = avg.toFixed(1);
   }
 };
@@ -222,11 +251,11 @@ const Custody = {
     const body = $("custodyBody");
     body.innerHTML = "";
 
-    if(!Custody.activeDept) {
+    if(!Custody.activeDept){
       body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">اختر قسم لعرض الكتب</td></tr>`;
       return;
     }
-    if(!Custody.rows.length) {
+    if(!Custody.rows.length){
       body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#6b7280">لا توجد بيانات في ملف هذا القسم</td></tr>`;
       return;
     }
@@ -277,7 +306,7 @@ const App = {
       State.feedback = Array.isArray(feedback) ? feedback : [];
 
       UI.setStatus("متصل ✅");
-      UI.renderSchedule();
+      UI.renderWeek();
       UI.renderReport();
     }catch(e){
       UI.setStatus("غير متصل");
@@ -302,13 +331,15 @@ const App = {
       const required = ["name","subject","grade","lessonTitle","purpose","bookingDate","period"];
       for(const k of required) if(!payload[k]) throw new Error("الرجاء تعبئة جميع الحقول");
 
+      // ✅ text/plain يحل Failed to fetch على GitHub Pages
       const res = await fetch(UI.api(), {
         method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" }, // ✅ يحل Failed to fetch
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
         body: JSON.stringify({ action:"addBooking", payload })
       }).then(r=>r.json());
 
       if(!res.ok) throw new Error(res.error || "فشل إرسال الحجز");
+
       alert("تم إرسال الحجز ✅");
       await App.refreshBookings();
     }catch(e){ alert(e.message); }
@@ -328,12 +359,14 @@ const App = {
 
       const res = await fetch(UI.api(), {
         method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" }, // ✅ يحل Failed to fetch
+        headers:{ "Content-Type":"text/plain;charset=utf-8" },
         body: JSON.stringify({ action:"addFeedback", payload })
       }).then(r=>r.json());
 
       if(!res.ok) throw new Error(res.error || "فشل إرسال الرأي");
-      $("f_text").value = ""; $("f_name").value = "";
+
+      $("f_text").value = "";
+      $("f_name").value = "";
       alert("تم إرسال الرأي ✅");
       await App.refreshBookings();
     }catch(e){ alert(e.message); }
