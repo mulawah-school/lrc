@@ -1,3 +1,6 @@
+console.log("app.js loaded ✅");
+
+// ========= إعدادات =========
 const DEFAULT_API_URL =
   "https://script.google.com/macros/s/AKfycbymGWtNJh4i4-Y4FugOqu_X3cpwOWPdodE7U-On7KK7hyGda7s9Nr1xkWb-TaM9tqk5mA/exec";
 
@@ -32,6 +35,7 @@ function normalizeDate(v){
   return s;
 }
 
+// ✅ إشعار بدل alert
 function toast(msg, type="success"){
   let box = document.getElementById("toastBox");
   if(!box){
@@ -82,15 +86,23 @@ const UI = {
 
   toSunday(date){
     const d = new Date(date);
-    d.setDate(d.getDate() - d.getDay());
+    d.setDate(d.getDate() - d.getDay()); // الأحد
     return d;
+  },
+
+  openSettings(){
+    $("settingsDlg")?.showModal?.();
+  },
+  closeSettings(){
+    $("settingsDlg")?.close?.();
   },
 
   init(){
     // periods
     const periodSel = $("b_period");
     if(periodSel){
-      periodSel.innerHTML = `<option value="">— اختر —</option>` + PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
+      periodSel.innerHTML = `<option value="">— اختر —</option>` +
+        PERIODS.map(p=>`<option value="${p}">${p}</option>`).join("");
     }
 
     // dates
@@ -98,7 +110,7 @@ const UI = {
     if($("b_date")) $("b_date").value = today.toISOString().slice(0,10);
     if($("weekStart")) $("weekStart").value = UI.toSunday(today).toISOString().slice(0,10);
 
-    // settings
+    // settings input
     if($("apiUrl")) $("apiUrl").value = (localStorage.getItem("rc_api")||"").trim();
 
     // nav buttons (آمن)
@@ -108,21 +120,21 @@ const UI = {
     on("btnFeedback","click", ()=>UI.showTab("feedback"));
     on("btnReport","click", ()=>UI.showTab("report"));
 
-    on("btnSettings","click", ()=> $("settingsDlg")?.showModal?.());
-    on("btnCloseSettings","click", ()=> $("settingsDlg")?.close?.());
+    on("btnSettings","click", UI.openSettings);
+    on("btnCloseSettings","click", UI.closeSettings);
 
     on("btnSaveSettings","click", ()=>{
       localStorage.setItem("rc_api", ($("apiUrl")?.value || "").trim());
-      $("settingsDlg")?.close?.();
+      UI.closeSettings();
       toast("تم حفظ الإعدادات", "success");
       App.refreshBookings();
     });
 
-    // booking buttons
+    // booking
     on("btnSubmitBooking","click", App.submitBooking);
     on("btnRefreshBookings","click", App.refreshBookings);
 
-    // week buttons
+    // week
     on("btnPrevWeek","click", ()=>UI.shiftWeek(-7));
     on("btnNextWeek","click", ()=>UI.shiftWeek(7));
     on("btnRefreshWeek","click", UI.renderWeek);
@@ -142,6 +154,7 @@ const UI = {
     UI.renderWeek();
   },
 
+  // ✅ جدول أسبوعي يقرأ أعمدة الشيت العربية
   renderWeek(){
     const ws = $("weekStart");
     if(!ws) return;
@@ -170,7 +183,6 @@ const UI = {
 
     const arDays = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 
-    // ✅ يقرأ أعمدة الشيت العربية
     const map = {};
     for(const b of State.bookings){
       const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
@@ -203,7 +215,10 @@ const UI = {
         const subject = one["المادة"] ?? one.subject ?? "";
         const grade = one["الصف"] ?? one.grade ?? "";
         const lesson = one["عنوان الدرس"] ?? one.lessonTitle ?? "";
-        return `<td class="cellBooked"><span class="pill ok">محجوز</span><span class="small">${esc(name)} • ${esc(subject)} • ${esc(grade)}<br>${esc(lesson)}</span></td>`;
+        return `<td class="cellBooked">
+          <span class="pill ok">محجوز</span>
+          <span class="small">${esc(name)} • ${esc(subject)} • ${esc(grade)}<br>${esc(lesson)}</span>
+        </td>`;
       }).join("");
 
       body.insertAdjacentHTML("beforeend", `
@@ -216,7 +231,7 @@ const UI = {
   },
 
   renderReport(){
-    // (اختياري) إذا تبغين أعيد KPIs مثل قبل
+    // إذا عندك عناصر التقرير موجودة في HTML، نقدر نفعله لاحقاً.
   }
 };
 
@@ -235,6 +250,7 @@ const App = {
     }
   },
 
+  // ✅ تحقق صحيح + تعارض + تفريغ + Toast
   async submitBooking(){
     try{
       const name = ($("b_name")?.value || "").trim();
@@ -311,3 +327,26 @@ const App = {
 };
 
 window.addEventListener("load", UI.init);
+
+// ✅ تشغيل قسري للأيقونات حتى لو حصل خطأ في init
+(function forceNav(){
+  const go = (tab)=>{
+    ["booking","schedule","custody","feedback","report"].forEach(id=>{
+      const el = document.getElementById("tab-"+id);
+      if(el) el.hidden = (id !== tab);
+    });
+  };
+
+  document.addEventListener("click", (e)=>{
+    const id = e.target?.id;
+    if(id === "btnBooking") go("booking");
+    if(id === "btnSchedule") go("schedule");
+    if(id === "btnCustody") go("custody");
+    if(id === "btnFeedback") go("feedback");
+    if(id === "btnReport") go("report");
+    if(id === "btnSettings") document.getElementById("settingsDlg")?.showModal?.();
+    if(id === "btnCloseSettings") document.getElementById("settingsDlg")?.close?.();
+  });
+
+  go("booking");
+})();
