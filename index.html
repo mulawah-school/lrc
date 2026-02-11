@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>برنامج مركز المصادر</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="head">
+    <div>
+      <h1>برنامج مركز المصادر</h1>
+      <div class="sub">الحجوزات + العهدة (14 قسم بملفات Excel منفصلة) + آراء الزوار + تقرير</div>
+    </div>
+    <div class="status">
+      <span id="statusText">جاهز</span>
+      <button class="ghost" onclick="UI.showTab('booking')">الحجز</button>
+      <button class="ghost" onclick="UI.showTab('custody')">العهدة</button>
+      <button class="ghost" onclick="UI.showTab('schedule')">الجدول</button>
+      <button class="ghost" onclick="UI.showTab('feedback')">الآراء</button>
+      <button class="ghost" onclick="UI.showTab('report')">التقرير</button>
+      <button class="ghost" onclick="UI.openSettings()">إعدادات الحجوزات</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- الحجز -->
+  <section class="card tab" id="tab-booking">
+    <h2>حجز الحصص (8 حصص)</h2>
+    <div class="grid">
+      <div class="field"><label>الاسم</label><input id="b_name"></div>
+      <div class="field"><label>المادة</label><input id="b_subject"></div>
+      <div class="field"><label>الصف</label><input id="b_grade"></div>
+
+      <div class="field wide"><label>عنوان الدرس</label><input id="b_lessonTitle"></div>
+      <div class="field wide"><label>الهدف من الحجز</label><input id="b_purpose"></div>
+
+      <div class="field"><label>تاريخ الحجز</label><input id="b_date" type="date"></div>
+      <div class="field"><label>الحصة</label><select id="b_period"></select></div>
+      <div class="field"><label>ملاحظات</label><input id="b_notes"></div>
+    </div>
+    <div class="actions">
+      <button onclick="App.submitBooking()">إرسال الحجز</button>
+      <button class="secondary" onclick="App.refreshBookings()">تحديث الحجوزات</button>
+    </div>
+    <div class="hint">تخزين الحجوزات يكون عبر Google Sheets (Apps Script). ضع الرابط من الإعدادات.</div>
+  </section>
+
+  <!-- جدول الحجوزات -->
+  <section class="card tab" id="tab-schedule" hidden>
+    <h2>جدول الحجز اليومي</h2>
+    <div class="toolbar">
+      <div class="field"><label>تاريخ العرض</label><input id="s_date" type="date"></div>
+      <div class="field"><label>تصفية بالحصة</label><select id="s_period"><option value="">الكل</option></select></div>
+      <div class="field"><label>بحث</label><input id="s_q" oninput="UI.renderSchedule()"></div>
+      <button class="ghost" onclick="UI.renderSchedule()">تطبيق</button>
+    </div>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>الحصة</th><th>الاسم</th><th>المادة</th><th>الصف</th><th>عنوان الدرس</th><th>الهدف</th><th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- العهدة -->
+  <section class="card tab" id="tab-custody" hidden>
+    <h2>العهدة (14 قسم)</h2>
+    <div class="hint">اضغط على قسم لعرض جميع الكتب من ملف Excel الخاص به داخل مجلد <b>data/</b>.</div>
+
+    <div class="deptChips" id="custodyChips"></div>
+
+    <div class="toolbar">
+      <div class="field"><label>بحث داخل الكتب</label><input id="c_q" placeholder="عنوان/مؤلف/باركود..." oninput="Custody.render()"></div>
+      <button class="ghost" onclick="Custody.reloadActive()">إعادة تحميل القسم</button>
+    </div>
+
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>باركود</th><th>العنوان</th><th>المؤلف</th><th>القسم</th><th>ملاحظات</th>
+          </tr>
+        </thead>
+        <tbody id="custodyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- آراء الزوار -->
+  <section class="card tab" id="tab-feedback" hidden>
+    <h2>آراء الزوار</h2>
+    <div class="grid">
+      <div class="field"><label>الفئة</label>
+        <select id="f_type"><option>طالب</option><option>معلم</option><option>زائر</option><option>إداري</option><option>ولي أمر</option><option>أخرى</option></select>
+      </div>
+      <div class="field"><label>التقييم</label>
+        <select id="f_rate"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
+      </div>
+      <div class="field"><label>الاسم (اختياري)</label><input id="f_name"></div>
+      <div class="field wide"><label>الرأي/الملاحظة</label><textarea id="f_text"></textarea></div>
+    </div>
+    <div class="actions">
+      <button onclick="App.submitFeedback()">إرسال الرأي</button>
+    </div>
+  </section>
+
+  <!-- التقرير -->
+  <section class="card tab" id="tab-report" hidden>
+    <h2>التقرير</h2>
+    <div class="reportGrid">
+      <div class="kpi"><div class="k">إجمالي الحجوزات</div><div class="v" id="r_totalBookings">0</div></div>
+      <div class="kpi"><div class="k">حجوزات اليوم</div><div class="v" id="r_todayBookings">0</div></div>
+      <div class="kpi"><div class="k">إجمالي الآراء</div><div class="v" id="r_totalFeedback">0</div></div>
+      <div class="kpi"><div class="k">متوسط التقييم</div><div class="v" id="r_avgRate">0</div></div>
+    </div>
+  </section>
+
+</main>
+
+<dialog id="settingsDlg" class="dlg">
+  <div class="card">
+    <h2>إعدادات التخزين (الحجوزات والآراء)</h2>
+    <div class="field">
+      <label>رابط Apps Script Web App (ينتهي بـ /exec)</label>
+      <input id="apiUrl" placeholder="https://script.google.com/macros/s/XXXX/exec">
+      <div class="hint">يحفظ على جهاز المستخدم (LocalStorage).</div>
+    </div>
+    <div class="actions">
+      <button onclick="UI.saveSettings()">حفظ</button>
+      <button class="ghost" onclick="UI.closeSettings()">إغلاق</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
