@@ -16,12 +16,12 @@
     </div>
     <div class="status">
       <span id="statusText">جاهز</span>
-      <button class="ghost" id="btnBooking">الحجز</button>
-      <button class="ghost" id="btnSchedule">جدول الحجز</button>
-      <button class="ghost" id="btnCustody">العهدة</button>
-      <button class="ghost" id="btnFeedback">آراء الزوار</button>
-      <button class="ghost" id="btnReport">التقرير</button>
-      <button class="ghost" id="btnSettings">إعدادات التخزين</button>
+      <button class="ghost" id="btnBooking" type="button">الحجز</button>
+      <button class="ghost" id="btnSchedule" type="button">جدول الحجز</button>
+      <button class="ghost" id="btnCustody" type="button">العهدة</button>
+      <button class="ghost" id="btnFeedback" type="button">آراء الزوار</button>
+      <button class="ghost" id="btnReport" type="button">التقرير</button>
+      <button class="ghost" id="btnSettings" type="button">إعدادات التخزين</button>
     </div>
   </div>
 </header>
@@ -44,8 +44,8 @@
     </div>
 
     <div class="actions">
-      <button id="btnSubmitBooking">إرسال الحجز</button>
-      <button class="secondary" id="btnRefreshBookings">تحديث الحجوزات</button>
+      <button id="btnSubmitBooking" type="button">إرسال الحجز</button>
+      <button class="secondary" id="btnRefreshBookings" type="button">تحديث الحجوزات</button>
     </div>
 
     <div class="hint">يتم الحفظ المشترك عبر Google Apps Script. يمكن تغيير الرابط من (إعدادات التخزين).</div>
@@ -54,13 +54,13 @@
   <section class="card tab" id="tab-schedule" hidden>
     <h2>جدول الحجز الأسبوعي</h2>
     <div class="toolbar">
-      <button class="ghost" id="btnPrevWeek">⬅ الأسبوع السابق</button>
+      <button class="ghost" id="btnPrevWeek" type="button">⬅ الأسبوع السابق</button>
       <div class="field">
         <label>بداية الأسبوع (الأحد)</label>
         <input id="weekStart" type="date">
       </div>
-      <button class="ghost" id="btnNextWeek">الأسبوع التالي ➡</button>
-      <button class="ghost" id="btnRefreshWeek">تحديث</button>
+      <button class="ghost" id="btnNextWeek" type="button">الأسبوع التالي ➡</button>
+      <button class="ghost" id="btnRefreshWeek" type="button">تحديث</button>
     </div>
     <div class="hint">يظهر الحجز داخل خلية (اليوم × الحصة). إذا وُجد أكثر من حجز لنفس الخلية يظهر "تعارض".</div>
     <div class="tableWrap">
@@ -77,7 +77,7 @@
     <div class="deptChips" id="custodyChips"></div>
     <div class="toolbar">
       <div class="field"><label>بحث داخل الكتب</label><input id="c_q" placeholder="العنوان/المؤلفون/المواضيع..."></div>
-      <button class="ghost" id="btnReloadCustody">إعادة تحميل القسم</button>
+      <button class="ghost" id="btnReloadCustody" type="button">إعادة تحميل القسم</button>
     </div>
     <div class="tableWrap">
       <table>
@@ -104,7 +104,7 @@
       <div class="field"><label>الاسم (اختياري)</label><input id="f_name"></div>
       <div class="field wide"><label>الرأي/الملاحظة</label><textarea id="f_text"></textarea></div>
     </div>
-    <div class="actions"><button id="btnSubmitFeedback">إرسال الرأي</button></div>
+    <div class="actions"><button id="btnSubmitFeedback" type="button">إرسال الرأي</button></div>
   </section>
 
   <section class="card tab" id="tab-report" hidden>
@@ -129,12 +129,12 @@
       <div class="hint">إذا تركته فارغاً سيتم استخدام الرابط المدموج داخل app.js تلقائياً.</div>
     </div>
     <div class="actions">
-      <button id="btnSaveSettings">حفظ</button>
-      <button class="ghost" id="btnCloseSettings">إغلاق</button>
+      <button id="btnSaveSettings" type="button">حفظ</button>
+      <button class="ghost" id="btnCloseSettings" type="button">إغلاق</button>
     </div>
   </div>
 </dialog>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260211"></script>
 </body>
 </html>
