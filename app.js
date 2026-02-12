@@ -57,6 +57,29 @@ function normalizeDate(v){
   return s;
 }
 
+
+// قراءة آمنة للحقول حتى لو كان عنوان العمود فيه مسافات/اختلاف بسيط
+function _normKey(k){
+  return String(k||"").toLowerCase().replace(/[\s_\-]+/g,"").replace(/[^\u0600-\u06FFa-z0-9]/g,"");
+}
+function getField(obj, keys, fallback=""){
+  if(!obj) return fallback;
+  for(const k of keys){
+    if(k in obj && obj[k]!=="" && obj[k]!==null && obj[k]!==undefined) return obj[k];
+    const kt = String(k).trim();
+    if(kt in obj && obj[kt]!=="" && obj[kt]!==null && obj[kt]!==undefined) return obj[kt];
+  }
+  const map = {};
+  for(const [k,v] of Object.entries(obj)){
+    map[_normKey(k)] = v;
+  }
+  for(const k of keys){
+    const v = map[_normKey(k)];
+    if(v!=="" && v!==null && v!==undefined) return v;
+  }
+  return fallback;
+}
+
 function toast(msg, type="success"){
   let box = document.getElementById("toastBox");
   if(!box){
@@ -260,8 +283,8 @@ const UI = {
 
     const map = {};
     for(const b of State.bookings){
-      const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
-      const bp = String(b["الحصة"] ?? b.period ?? "");
+      const bd = normalizeDate(getField(b, ["تاريخ الحجز","bookingDate","date"], ""));
+      const bp = String(getField(b, ["الحصة","period"], ""));
       const key = `${bd}__${bp}`;
       if(!map[key]) map[key] = [];
       map[key].push(b);
@@ -281,15 +304,15 @@ const UI = {
         if(items.length===0) return `<td>—</td>`;
 
         if(items.length>1){
-          const names = items.map(x=> (x["الاسم"] ?? x.name ?? "")).filter(Boolean).join(" ، ");
+          const names = items.map(x=> getField(x, ["الاسم","name"], "")).filter(Boolean).join(" ، ");
           return `<td class="cellConflict"><span class="pill warn">تعارض</span><span class="small">${esc(names)}</span></td>`;
         }
 
         const one = items[0];
-        const name = one["الاسم"] ?? one.name ?? "";
-        const subject = one["المادة"] ?? one.subject ?? "";
-        const grade = one["الصف"] ?? one.grade ?? "";
-        const lesson = one["عنوان الدرس"] ?? one.lessonTitle ?? "";
+        const name = getField(one, ["الاسم","name"], "");
+        const subject = getField(one, ["المادة","subject"], "");
+        const grade = getField(one, ["الصف","grade","class"], "");
+        const lesson = getField(one, ["عنوان الدرس","lessonTitle","lesson"], "");
         return `<td class="cellBooked"><span class="pill ok">محجوز</span><span class="small">${esc(name)} • ${esc(subject)} • ${esc(grade)}<br>${esc(lesson)}</span></td>`;
       }).join("");
 
@@ -487,13 +510,13 @@ const App = {
       const d = bookingDate;
       const p = String(period);
       const conflicts = State.bookings.filter(b=>{
-        const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
-        const bp = String(b["الحصة"] ?? b.period ?? "");
+        const bd = normalizeDate(getField(b, ["تاريخ الحجز","bookingDate","date"], ""));
+        const bp = String(getField(b, ["الحصة","period"], ""));
         return bd===d && bp===p;
       });
 
       if(conflicts.length >= 1){
-        const names = conflicts.map(x=> (x["الاسم"] ?? x.name ?? "")).filter(Boolean).join(" ، ");
+        const names = conflicts.map(x=> getField(x, ["الاسم","name"], "")).filter(Boolean).join(" ، ");
         const ok = confirm(`⚠️ هذه الحصة محجوزة بالفعل.\nالمحجوز: ${names}\n\nهل تريد تسجيل الحجز كتعارض؟`);
         if(!ok){
           toast("تم إلغاء الحجز", "warn");
@@ -509,6 +532,15 @@ const App = {
       }
 
       toast("تم الحجز بنجاح ✅", "success");
+
+      // عرض الأسبوع الذي يحتوي تاريخ هذا الحجز
+      if($("weekStart")){
+        const d2 = new Date(bookingDate);
+        $("weekStart").value = UI.toSunday(d2).toISOString().slice(0,10);
+      }
+      // يمكنك فتح جدول الحجز مباشرة إذا رغبت
+      // UI.showTab("schedule");
+
 
       if($("b_name")) $("b_name").value = "";
       if($("b_subject")) $("b_subject").value = "";
