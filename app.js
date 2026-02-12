@@ -162,6 +162,7 @@ const UI = {
       if(el) el.hidden = (id !== name);
     });
     if(name==="schedule") UI.renderWeek();
+    UI.renderReport();
     if(name==="report") UI.renderReport();
   },
 
@@ -324,7 +325,63 @@ const UI = {
     }
   },
 
-  renderReport: function(){ /* اختياري */ }
+  renderReport: function(){
+    // يعتمد على العناصر الموجودة في index.html
+    const elTotalB = $("r_totalBookings");
+    const elTodayB = $("r_todayBookings");
+    const elConf   = $("r_conflicts");
+    const elTotalF = $("r_totalFeedback");
+    const elAvg    = $("r_avgRate");
+
+    const today = new Date().toISOString().slice(0,10);
+
+    // مفاتيح مرنة للقراءة من الشيت
+    const get = (obj, ...keys)=>{
+      for(const k of keys){
+        if(obj && obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
+      }
+      // محاولة مطابقة بدون مسافات
+      const norm = (s)=>String(s).replace(/\s+/g,"").trim();
+      const wanted = keys.map(norm);
+      for(const kk of Object.keys(obj||{})){
+        if(wanted.includes(norm(kk))) return obj[kk];
+      }
+      return "";
+    };
+
+    // 1) الحجوزات
+    const totalBookings = State.bookings.length;
+
+    const todayBookings = State.bookings.filter(b=>{
+      const d = normalizeDate(get(b, "تاريخ الحجز","bookingDate"));
+      return d === today;
+    }).length;
+
+    // عدد التعارضات (نفس اليوم ونفس الحصة أكثر من مرة)
+    const counter = {};
+    for(const b of State.bookings){
+      const d = normalizeDate(get(b, "تاريخ الحجز","bookingDate"));
+      const p = String(get(b, "الحصة","period"));
+      if(!d || !p) continue;
+      const key = d + "__" + p;
+      counter[key] = (counter[key]||0) + 1;
+    }
+    const conflicts = Object.values(counter).filter(v=>v>1).length;
+
+    // 2) الآراء
+    const totalFeedback = State.feedback.length;
+
+    const rates = State.feedback
+      .map(f=> parseFloat(get(f, "التقييم","rate")))
+      .filter(x=> !isNaN(x));
+    const avgRate = rates.length ? (rates.reduce((a,b)=>a+b,0)/rates.length) : 0;
+
+    if(elTotalB) elTotalB.textContent = String(totalBookings);
+    if(elTodayB) elTodayB.textContent = String(todayBookings);
+    if(elConf)   elConf.textContent   = String(conflicts);
+    if(elTotalF) elTotalF.textContent = String(totalFeedback);
+    if(elAvg)    elAvg.textContent    = rates.length ? avgRate.toFixed(2) : "—";
+  }
 };
 
 // ===== العهدة =====
