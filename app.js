@@ -84,6 +84,41 @@ function toast(msg, type="success"){
   setTimeout(()=>{ t.remove(); }, 2900);
 }
 
+
+// ===== JSONP (حل مشكلة CORS مع Google Apps Script) =====
+function jsonp(url, timeoutMs=15000){
+  return new Promise((resolve, reject)=>{
+    const cb = "cb_" + Math.random().toString(36).slice(2);
+    const script = document.createElement("script");
+    const sep = url.includes("?") ? "&" : "?";
+    script.src = url + sep + "callback=" + cb;
+    script.async = true;
+
+    const timer = setTimeout(()=>{
+      cleanup();
+      reject(new Error("انتهت مهلة الاتصال"));
+    }, timeoutMs);
+
+    function cleanup(){
+      clearTimeout(timer);
+      script.remove();
+      try{ delete window[cb]; }catch(_){}
+    }
+
+    window[cb] = (data)=>{
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = ()=>{
+      cleanup();
+      reject(new Error("فشل الاتصال (تحقق من رابط السكربت ونشره)"));
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
 // ===== UI =====
 const UI = {
   api: function(){
@@ -377,7 +412,7 @@ const App = {
 
     // 1) الحجوزات (لازم)
     try{
-      const bookings = await fetch(`${base}?action=listBookings`, {cache:"no-store"}).then(r=>r.json());
+      const bookings = await jsonp(`${base}?action=listBookings`);
       State.bookings = Array.isArray(bookings) ? bookings : [];
       UI.setStatus("متصل ✅");
     }catch(e){
@@ -388,7 +423,7 @@ const App = {
 
     // 2) الآراء (اختياري — لا يوقف الموقع إذا غير متوفر)
     try{
-      const feedback = await fetch(`${base}?action=listFeedback`, {cache:"no-store"}).then(r=>r.json());
+      const feedback = await jsonp(`${base}?action=listFeedback`);
       State.feedback = Array.isArray(feedback) ? feedback : [];
     }catch(e){
       State.feedback = [];
@@ -466,11 +501,7 @@ const App = {
         }
       }
 
-      const res = await fetch(UI.api(), {
-        method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" },
-        body: JSON.stringify({ action:"addBooking", payload })
-      }).then(r=>r.json());
+      const res = await jsonp(`${UI.api()}?action=addBooking&payload=${encodeURIComponent(JSON.stringify(payload))}`);
 
       if(!res.ok){
         toast(res.error || "فشل إرسال الحجز", "error");
@@ -509,11 +540,7 @@ const App = {
         "النص": text
       };
 
-      const res = await fetch(UI.api(), {
-        method:"POST",
-        headers:{ "Content-Type":"text/plain;charset=utf-8" },
-        body: JSON.stringify({ action:"addFeedback", payload })
-      }).then(r=>r.json());
+      const res = await jsonp(`${UI.api()}?action=addFeedback&payload=${encodeURIComponent(JSON.stringify(payload))}`);
 
       if(!res.ok) return toast(res.error || "فشل إرسال الرأي", "error");
 
