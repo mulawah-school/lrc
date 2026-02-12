@@ -326,51 +326,28 @@ const UI = {
   },
 
   renderReport: function(){
-  const tBookings = $("r_totalBookings");
-  const tToday = $("r_todayBookings");
-  const tConf = $("r_conflicts");
-  const tFb = $("r_totalFeedback");
-  const tAvg = $("r_avgRate");
+    // يعتمد على العناصر الموجودة في index.html
+    const elTotalB = $("r_totalBookings");
+    const elTodayB = $("r_todayBookings");
+    const elConf   = $("r_conflicts");
+    const elTotalF = $("r_totalFeedback");
+    const elAvg    = $("r_avgRate");
 
-  // إذا عناصر التقرير غير موجودة في الصفحة لا نفعل شيء
-  if(!tBookings && !tToday && !tConf && !tFb && !tAvg) return;
+    const today = new Date().toISOString().slice(0,10);
 
-  // ===== الحجوزات =====
-  const today = new Date().toISOString().slice(0,10);
-
-  // keyCount لتحديد التعارضات (نفس التاريخ + نفس الحصة)
-  const keyCount = {};
-  let todayCount = 0;
-
-  for(const b of (State.bookings || [])){
-    const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
-    const bp = String(b["الحصة"] ?? b.period ?? "");
-    if(bd) keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`] || 0) + 1;
-    if(bd === today) todayCount++;
-  }
-
-  const conflicts = Object.values(keyCount).filter(v=>v>1).length;
-
-  if(tBookings) tBookings.textContent = (State.bookings || []).length;
-  if(tToday) tToday.textContent = todayCount;
-  if(tConf) tConf.textContent = conflicts;
-
-  // ===== الآراء =====
-  if(tFb) tFb.textContent = (State.feedback || []).length;
-
-  if(tAvg){
-    const rates = (State.feedback || [])
-      .map(f => Number(f["التقييم"] ?? f.rate ?? f.Rate ?? f.rating))
-      .filter(x => !isNaN(x));
-
-    if(rates.length === 0){
-      tAvg.textContent = "—";
-    }else{
-      const avg = rates.reduce((a,b)=>a+b,0) / rates.length;
-      tAvg.textContent = avg.toFixed(2);
-    }
-  }
-},
+    // مفاتيح مرنة للقراءة من الشيت
+    const get = (obj, ...keys)=>{
+      for(const k of keys){
+        if(obj && obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== "") return obj[k];
+      }
+      // محاولة مطابقة بدون مسافات
+      const norm = (s)=>String(s).replace(/\s+/g,"").trim();
+      const wanted = keys.map(norm);
+      for(const kk of Object.keys(obj||{})){
+        if(wanted.includes(norm(kk))) return obj[kk];
+      }
+      return "";
+    };
 
     // 1) الحجوزات
     const totalBookings = State.bookings.length;
