@@ -162,6 +162,7 @@ const UI = {
       if(el) el.hidden = (id !== name);
     });
     if(name==="schedule") UI.renderWeek();
+    UI.renderReport();
     if(name==="report") UI.renderReport();
   },
 
@@ -324,50 +325,87 @@ const UI = {
     }
   },
 
-    renderReport: function(){
-    const tBookings = $("r_totalBookings");
-    const tToday = $("r_todayBookings");
-    const tConf = $("r_conflicts");
-    const tFb = $("r_totalFeedback");
-    const tAvg = $("r_avgRate");
+  renderReport: function(){
+  const tBookings = $("r_totalBookings");
+  const tToday = $("r_todayBookings");
+  const tConf = $("r_conflicts");
+  const tFb = $("r_totalFeedback");
+  const tAvg = $("r_avgRate");
 
-    if(!tBookings && !tToday && !tConf && !tFb && !tAvg) return;
+  // إذا عناصر التقرير غير موجودة في الصفحة لا نفعل شيء
+  if(!tBookings && !tToday && !tConf && !tFb && !tAvg) return;
 
-    const today = new Date().toISOString().slice(0,10);
+  // ===== الحجوزات =====
+  const today = new Date().toISOString().slice(0,10);
 
-    let todayCount = 0;
-    const keyCount = {};
+  // keyCount لتحديد التعارضات (نفس التاريخ + نفس الحصة)
+  const keyCount = {};
+  let todayCount = 0;
 
-    for(const b of (State.bookings || [])){
-      const bd = normalizeDate(getField(b, ["تاريخ الحجز","bookingDate","date"], ""));
-      const bp = String(getField(b, ["الحصة","period"], ""));
-      if(bd){
-        const key = f"{bd}__{bp}"
-        keyCount[key] = (keyCount.get(key, 0)) + 1
-        if(bd == today):
-            todayCount += 1
+  for(const b of (State.bookings || [])){
+    const bd = normalizeDate(b["تاريخ الحجز"] ?? b.bookingDate ?? "");
+    const bp = String(b["الحصة"] ?? b.period ?? "");
+    if(bd) keyCount[`${bd}__${bp}`] = (keyCount[`${bd}__${bp}`] || 0) + 1;
+    if(bd === today) todayCount++;
+  }
 
-    conflicts = sum(1 for v in keyCount.values() if v > 1)
+  const conflicts = Object.values(keyCount).filter(v=>v>1).length;
 
-    if(tBookings): tBookings.textContent = str(len(State.get("bookings", [])))
-    if(tToday): tToday.textContent = str(todayCount)
-    if(tConf): tConf.textContent = str(conflicts)
+  if(tBookings) tBookings.textContent = (State.bookings || []).length;
+  if(tToday) tToday.textContent = todayCount;
+  if(tConf) tConf.textContent = conflicts;
 
-    if(tFb): tFb.textContent = str(len(State.get("feedback", [])))
+  // ===== الآراء =====
+  if(tFb) tFb.textContent = (State.feedback || []).length;
 
-    if(tAvg):
-        rates = []
-        for f in State.get("feedback", []):
-            val = f.get("التقييم") or f.get("rate") or f.get("Rate") or f.get("rating")
-            try:
-                rates.append(float(val))
-            except:
-                pass
-        if rates:
-            tAvg.textContent = f"{sum(rates)/len(rates):.2f}"
-        else:
-            tAvg.textContent = "—"
-  };
+  if(tAvg){
+    const rates = (State.feedback || [])
+      .map(f => Number(f["التقييم"] ?? f.rate ?? f.Rate ?? f.rating))
+      .filter(x => !isNaN(x));
+
+    if(rates.length === 0){
+      tAvg.textContent = "—";
+    }else{
+      const avg = rates.reduce((a,b)=>a+b,0) / rates.length;
+      tAvg.textContent = avg.toFixed(2);
+    }
+  }
+},
+
+    // 1) الحجوزات
+    const totalBookings = State.bookings.length;
+
+    const todayBookings = State.bookings.filter(b=>{
+      const d = normalizeDate(get(b, "تاريخ الحجز","bookingDate"));
+      return d === today;
+    }).length;
+
+    // عدد التعارضات (نفس اليوم ونفس الحصة أكثر من مرة)
+    const counter = {};
+    for(const b of State.bookings){
+      const d = normalizeDate(get(b, "تاريخ الحجز","bookingDate"));
+      const p = String(get(b, "الحصة","period"));
+      if(!d || !p) continue;
+      const key = d + "__" + p;
+      counter[key] = (counter[key]||0) + 1;
+    }
+    const conflicts = Object.values(counter).filter(v=>v>1).length;
+
+    // 2) الآراء
+    const totalFeedback = State.feedback.length;
+
+    const rates = State.feedback
+      .map(f=> parseFloat(get(f, "التقييم","rate")))
+      .filter(x=> !isNaN(x));
+    const avgRate = rates.length ? (rates.reduce((a,b)=>a+b,0)/rates.length) : 0;
+
+    if(elTotalB) elTotalB.textContent = String(totalBookings);
+    if(elTodayB) elTodayB.textContent = String(todayBookings);
+    if(elConf)   elConf.textContent   = String(conflicts);
+    if(elTotalF) elTotalF.textContent = String(totalFeedback);
+    if(elAvg)    elAvg.textContent    = rates.length ? avgRate.toFixed(2) : "—";
+  }
+};
 
 // ===== العهدة =====
 const Custody = {
