@@ -426,17 +426,24 @@
             sendButton.disabled = true;
             sendBtnText.textContent = 'جاري الإرسال...';
 
+            // مهم: نستخدم no-cors مع text/plain حتى يعمل من GitHub Pages بدون منع CORS.
+            // في وضع no-cors لا يستطيع المتصفح قراءة رد Google Script، لذلك نعرض رسالة "تم إرسال الطلب" بعد تنفيذ الإرسال.
             fetch(GOOGLE_SHEET_SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
+                cache: 'no-cache',
+                redirect: 'follow',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
                 body: JSON.stringify(payload)
             })
             .then(() => {
-                showToast('تم إرسال البيانات إلى Google Sheet.');
+                showToast('تم إرسال الطلب. تحقق من Google Sheet بعد ثوانٍ.');
             })
             .catch((error) => {
                 console.error('Google Sheet Error:', error);
-                showToast('حدث خطأ أثناء الإرسال، تحقق من رابط السكربت وصلاحيات النشر.');
+                showToast('تعذر الاتصال بالسكربت. افتح الملف من GitHub Pages وليس من صفحة الكود في GitHub.');
             })
             .finally(() => {
                 sendButton.disabled = false;
