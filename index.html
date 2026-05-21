@@ -385,35 +385,23 @@
         });
 
         // إعداد رابط Google Apps Script
-        const GOOGLE_SHEET_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLdcwcbBVA78pZe8AzIgRpkRyhwKo81xHQ_Jfr5fjj/dev';
+        const GOOGLE_SHEET_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwVET5yITkk8U7iYTiaRQk-wA64alJvcdPpRwR7A2nXzxq9TOWgOfccBmxlS_wD1gUepA/exec';
 
-        // تجهيز البيانات المرسلة إلى Google Sheet
+        // تجهيز البيانات المرسلة إلى Google Sheet بنفس الشكل الذي يستقبله كود Apps Script
         function buildSheetPayload() {
-            const totalPortal = records.reduce((sum, r) => sum + (Number(r.portal) || 0), 0);
-            const totalPlan = records.reduce((sum, r) => sum + (Number(r.plan) || 0), 0);
-            const totalExecuted = records.reduce((sum, r) => sum + (Number(r.executed) || 0), 0);
-
             return {
                 schoolName: document.getElementById('schoolName').value.trim(),
                 academicYear: document.getElementById('academicYear').value.trim(),
                 semester: document.getElementById('semester').value.trim(),
-                sentAt: new Date().toLocaleString('ar-OM'),
-                records: records.map((record, index) => ({
-                    serial: index + 1,
+                averagePercentage: calculateAveragePercentage(),
+                records: records.map((record) => ({
                     grade: record.grade,
                     section: record.section,
                     portal: record.portal || '',
                     plan: record.plan,
                     executed: record.executed,
-                    notes: record.notes || '',
-                    percentage: calculatePercentage(record.executed, record.plan)
-                })),
-                summary: {
-                    totalPortal,
-                    totalPlan,
-                    totalExecuted,
-                    averagePercentage: calculateAveragePercentage()
-                }
+                    notes: record.notes || ''
+                }))
             };
         }
 
@@ -421,6 +409,13 @@
         document.getElementById('sendToSheetBtn').addEventListener('click', function () {
             if (records.length === 0) {
                 showToast('لا توجد بيانات لإرسالها.');
+                return;
+            }
+
+            const payload = buildSheetPayload();
+
+            if (!payload.schoolName || !payload.academicYear || !payload.semester) {
+                showToast('يرجى تعبئة اسم المدرسة والعام الدراسي والفصل الدراسي قبل الإرسال.');
                 return;
             }
 
@@ -434,10 +429,7 @@
             fetch(GOOGLE_SHEET_SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8'
-                },
-                body: JSON.stringify(buildSheetPayload())
+                body: JSON.stringify(payload)
             })
             .then(() => {
                 showToast('تم إرسال البيانات إلى Google Sheet.');
