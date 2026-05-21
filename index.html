@@ -1,333 +1,390 @@
-import React, { useState } from 'react';
-import { FlaskConical, Trash2, Plus, Printer, FileText, Beaker, School, Calendar, BookOpen } from 'lucide-react';
-
-const App = () => {
-  // تفريغ حقول الترويسة لتكون جاهزة للإدخال من قبلك وتعديلها مباشرة
-  const [headerInfo, setHeaderInfo] = useState({
-    schoolName: '',
-    academicYear: '',
-    semester: ''
-  });
-
-  // تم إفراغ الجدول بالكامل ليكون جاهزاً لإدخال بياناتك الخاصة
-  const [records, setRecords] = useState([]);
-
-  // حالة نموذج الإدخال الجديد
-  const [formData, setFormData] = useState({
-    grade: '',
-    section: '',
-    portalLessons: '',
-    planLessons: '',
-    executedLessons: '',
-    notes: ''
-  });
-
-  // دالة حساب نسبة الإنجاز تلقائياً لكل صف
-  const calculatePercentage = (executed, plan) => {
-    if (!plan || plan == 0) return 0;
-    const result = (executed / plan) * 100;
-    return Number(result.toFixed(1)); // تقريب لمنزلة عشرية واحدة
-  };
-
-  // دالة حساب متوسط النسبة المئوية العامة لجميع الصفوف
-  const calculateAveragePercentage = () => {
-    if (records.length === 0) return 0;
-    const totalPercentages = records.reduce((sum, record) => {
-      return sum + calculatePercentage(record.executedLessons, record.planLessons);
-    }, 0);
-    return Number((totalPercentages / records.length).toFixed(1));
-  };
-
-  // معالجة تغييرات الترويسة
-  const handleHeaderChange = (e) => {
-    const { name, value } = e.target;
-    setHeaderInfo(prev => ({ ...prev, [name]: value }));
-  };
-
-  // معالجة تغييرات نموذج الإدخال
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // إضافة سجل جديد للجدول
-  const handleAddRecord = (e) => {
-    e.preventDefault();
-    if (!formData.grade || !formData.section || !formData.planLessons || !formData.executedLessons) {
-      alert('يرجى تعبئة الحقول الأساسية (الصف، الشعبة، الدروس المعتمدة، والدروس المنفذة)');
-      return;
-    }
-
-    const newRecord = {
-      id: Date.now(),
-      grade: formData.grade,
-      section: formData.section,
-      portalLessons: Number(formData.portalLessons) || Number(formData.planLessons), // افتراضياً نفس المعتمدة إذا تركت فارغة
-      planLessons: Number(formData.planLessons),
-      executedLessons: Number(formData.executedLessons),
-      notes: formData.notes
-    };
-
-    setRecords([...records, newRecord]);
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>التقرير الفني الفصلي لمختبرات العلوم</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Tajawal) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     
-    // تصفير نموذج الإدخال جزئياً لتسهيل كتابة الشعبة التالية لنفس الصف
-    setFormData({
-      ...formData,
-      section: '',
-      executedLessons: '',
-      notes: ''
-    });
-  };
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white !important;
+                padding: 0 !important;
+            }
+            .print-card {
+                border: none !important;
+                box-shadow: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+            .print-border {
+                border: 1px solid #cbd5e1 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8 min-h-screen">
 
-  // حذف سجل من الجدول
-  const handleDelete = (id) => {
-    setRecords(records.filter(record => record.id !== id));
-  };
-
-  // دالة تحديد لون مؤشر نسبة الإنجاز
-  const getPercentageColor = (percentage) => {
-    if (percentage >= 90) return 'text-emerald-600 bg-emerald-50';
-    if (percentage >= 70) return 'text-amber-600 bg-amber-50';
-    return 'text-rose-600 bg-rose-50';
-  };
-
-  return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8">
-      {/* الحاوية الرئيسية للتطبيق */}
-      <div className="max-w-7xl mx-auto space-y-6">
+    <!-- الحاوية الرئيسية للتطبيق -->
+    <div class="max-w-7xl mx-auto space-y-6">
         
-        {/* الترويسة العلوية للمستند مع الحقول الفارغة القابلة للتعبئة مباشرة */}
-        <header className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none print:bg-transparent">
-          <div className="bg-teal-600 p-6 text-white flex items-center justify-between print:bg-teal-700 print:text-black print:p-0 print:mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm print:hidden">
-                <Beaker size={32} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold mb-1">التقرير الفني الفصلي لمختبرات العلوم</h1>
-                <p className="text-teal-100 text-sm print:text-gray-600">متابعة تنفيذ الدروس العملية - إعداد فني المختبر</p>
-              </div>
+        <!-- الترويسة العلوية للمستند -->
+        <header class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-card">
+            <!-- الجزء العلوي الملون للترويسة -->
+            <div class="bg-teal-600 p-6 text-white flex items-center justify-between no-print">
+                <div class="flex items-center gap-4">
+                    <div class="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <!-- أيقونة المخبر العلمية الرسمية (دورق مخروطي مخبري) -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white">
+                            <path d="M10 2h4"></path>
+                            <path d="M10 2v3.1a2 2 0 0 1-.2 1l-3.6 7a2 2 0 0 0 1.8 2.9h8a2 2 0 0 0 1.8-2.9l-3.6-7a2 2 0 0 1-.2-1V2"></path>
+                            <path d="M6 14h12"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold mb-1">التقرير الفني الفصلي لمختبرات العلوم</h1>
+                        <p class="text-teal-100 text-sm">متابعة تنفيذ الدروس العملية - إعداد فني المختبر</p>
+                    </div>
+                </div>
+                <button onclick="window.print()" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 transition px-4 py-2 rounded-lg text-sm font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><polygon points="6 9 6 2 18 2 18 9"/><rect x="6 14" width="12" height="8" rx="1"/></svg>
+                    <span>طباعة التقرير</span>
+                </button>
             </div>
-            <button 
-              onClick={() => window.print()}
-              className="print:hidden flex items-center gap-2 bg-white/10 hover:bg-white/20 transition px-4 py-2 rounded-lg text-sm font-medium"
-            >
-              <Printer size={18} />
-              <span>طباعة التقرير</span>
-            </button>
-          </div>
 
-          {/* شبكة حقول الترويسة (فارغة لتقوم بإدخالها وتعديلها بسهولة) */}
-          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 print:p-0 print:gap-4">
-            <div className="space-y-1 relative">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <School size={14} className="text-teal-600" /> اسم المدرسة
-              </label>
-              <input 
-                type="text" 
-                name="schoolName"
-                placeholder="أدخل اسم المدرسة هنا..."
-                value={headerInfo.schoolName}
-                onChange={handleHeaderChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
-              />
+            <!-- جزء الطباعة المخصص فقط للمستند المطبوع كعنوان رسمي -->
+            <div class="hidden print:block text-center border-b-2 border-slate-300 pb-6 mb-6">
+                <h1 class="text-2xl font-bold text-slate-950">التقرير الفني الفصلي لمتابعة تنفيذ الدروس العملية بمختبرات العلوم</h1>
+                <p class="text-sm text-slate-600 mt-1">وزارة التربية والتعليم</p>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <Calendar size={14} className="text-teal-600" /> العام الدراسي
-              </label>
-              <input 
-                type="text" 
-                name="academicYear"
-                placeholder="مثال: 2025/2026م"
-                value={headerInfo.academicYear}
-                onChange={handleHeaderChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
-              />
+
+            <!-- شبكة حقول الترويسة الفارغة القابلة للتعبئة مباشرة -->
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 print:p-0 print:gap-4 print:mb-8">
+                <div class="space-y-1 relative">
+                    <label class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-teal-600"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        اسم المدرسة
+                    </label>
+                    <input type="text" id="schoolName" placeholder="أدخل اسم المدرسة هنا..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-teal-600"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        العام الدراسي
+                    </label>
+                    <input type="text" id="academicYear" placeholder="مثال: 2025/2026م" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg">
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-teal-600"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        الفصل الدراسي
+                    </label>
+                    <input type="text" id="semester" placeholder="مثال: الثاني" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg">
+                </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                <BookOpen size={14} className="text-teal-600" /> الفصل الدراسي
-              </label>
-              <input 
-                type="text" 
-                name="semester"
-                placeholder="مثال: الثاني"
-                value={headerInfo.semester}
-                onChange={handleHeaderChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
-              />
-            </div>
-          </div>
         </header>
 
-        {/* قسم نموذج إدخال البيانات (يختفي عند الطباعة) */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 print:hidden">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-            <div className="bg-teal-100 p-2 rounded-lg text-teal-600">
-              <Plus size={20} />
-            </div>
-            <h2 className="text-lg font-bold text-slate-800">إضافة سجل جديد للتقرير</h2>
-          </div>
+        <!-- قسم تنبيهات النظام المخصص والبديل لـ alert() -->
+        <div id="toast" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-rose-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 transition-all duration-300">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="toast-message">يرجى إدخال الحقول المطلوبة</span>
+        </div>
 
-          <form onSubmit={handleAddRecord} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600">الصف والفرع العلمى</label>
-              <input required type="text" name="grade" value={formData.grade} onChange={handleFormChange} placeholder="مثال: الخامس أو التاسع كيمياء" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+        <!-- قسم نموذج إدخال البيانات الجديد -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 no-print">
+            <div class="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                <div class="bg-teal-100 p-2 rounded-lg text-teal-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-800">إضافة سجل جديد للتقرير</h2>
             </div>
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600">الشعبة</label>
-              <input required type="text" name="section" value={formData.section} onChange={handleFormChange} placeholder="مثال: 1" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
-            </div>
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600" title="في نظام إدارة مختبرات العلوم في البوابة التعليمية">الدروس بالبوابة</label>
-              <input type="number" name="portalLessons" value={formData.portalLessons} onChange={handleFormChange} placeholder="اختياري" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
-            </div>
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600" title="المعتمدة في خطة الدروس العملية">المعتمدة بالخطة</label>
-              <input required type="number" name="planLessons" value={formData.planLessons} onChange={handleFormChange} placeholder="عدد الدروس" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
-            </div>
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600">المنفذة فعلياً</label>
-              <input required type="number" name="executedLessons" value={formData.executedLessons} onChange={handleFormChange} placeholder="عدد الدروس" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
-            </div>
-            <div className="space-y-1 lg:col-span-1">
-              <label className="text-xs font-semibold text-slate-600">ملاحظات</label>
-              <input type="text" name="notes" value={formData.notes} onChange={handleFormChange} placeholder="مثال: أجر يومي" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
-            </div>
-            <div className="lg:col-span-6 flex justify-end mt-2">
-              <button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center gap-2">
-                <Plus size={18} />
-                إدراج في الجدول
-              </button>
-            </div>
-          </form>
+
+            <form id="recordForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600">الصف والفرع العلمي</label>
+                    <input required type="text" id="inputGrade" placeholder="مثال: الخامس أو التاسع كيمياء" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600">الشعبة</label>
+                    <input required type="text" id="inputSection" placeholder="مثال: 1" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600" title="في نظام إدارة مختبرات العلوم في البوابة التعليمية">الدروس بالبوابة</label>
+                    <input type="number" id="inputPortal" placeholder="اختياري" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600" title="المعتمدة في خطة الدروس العملية">المعتمدة بالخطة</label>
+                    <input required type="number" id="inputPlan" placeholder="عدد الدروس" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600">المنفذة فعلياً</label>
+                    <input required type="number" id="inputExecuted" placeholder="عدد الدروس" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="space-y-1 lg:col-span-1">
+                    <label class="text-xs font-semibold text-slate-600">ملاحظات</label>
+                    <input type="text" id="inputNotes" placeholder="مثال: أجر يومي" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
+                </div>
+                <div class="lg:col-span-6 flex justify-end mt-2">
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        إدراج في الجدول
+                    </button>
+                </div>
+            </form>
         </section>
 
-        {/* جدول عرض البيانات */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:border-slate-400 print:shadow-none">
-          <div className="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50 print:bg-gray-100 print:border-gray-400">
-            <FileText size={20} className="text-teal-600 print:text-black" />
-            <h2 className="text-lg font-bold text-slate-800">نتائج قياس مؤشرات عملية تنفيذ الدروس العملية</h2>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-right border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-600 text-sm border-b border-slate-200 print:bg-gray-200 print:text-black print:border-gray-400">
-                  <th className="p-4 font-semibold w-16 text-center">م</th>
-                  <th className="p-4 font-semibold">الصف</th>
-                  <th className="p-4 font-semibold text-center">الشعبة</th>
-                  <th className="p-4 font-semibold text-center max-w-[120px]">الدروس بالبوابة التعليمية</th>
-                  <th className="p-4 font-semibold text-center max-w-[120px]">المعتمدة في الخطة</th>
-                  <th className="p-4 font-semibold text-center max-w-[120px]">المنفذة فعلياً</th>
-                  <th className="p-4 font-semibold text-center">الملاحظات</th>
-                  <th className="p-4 font-semibold text-center">نتيجة القياس (%)</th>
-                  <th className="p-4 font-semibold text-center print:hidden w-16">إجراء</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 print:divide-gray-300">
-                {records.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="p-12 text-center text-slate-400">
-                      <FlaskConical size={52} className="mx-auto mb-3 opacity-20 text-teal-600" />
-                      <p className="font-medium text-slate-500">الجدول فارغ حالياً.</p>
-                      <p className="text-xs text-slate-400 mt-1">يرجى إدخال السجلات من نموذج الإضافة أعلاه لبناء التقرير.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  <>
-                    {records.map((record, index) => {
-                      const percentage = calculatePercentage(record.executedLessons, record.planLessons);
-                      return (
-                        <tr key={record.id} className="hover:bg-slate-50/80 transition group print:hover:bg-transparent">
-                          <td className="p-4 text-center text-slate-500 print:border print:border-gray-300">{index + 1}</td>
-                          <td className="p-4 font-medium text-slate-800 print:border print:border-gray-300">{record.grade}</td>
-                          <td className="p-4 text-center print:border print:border-gray-300">
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold print:bg-transparent print:border print:border-gray-300">
-                              {record.section}
-                            </span>
-                          </td>
-                          <td className="p-4 text-center text-slate-600 print:border print:border-gray-300">{record.portalLessons || '-'}</td>
-                          <td className="p-4 text-center text-slate-600 print:border print:border-gray-300">{record.planLessons}</td>
-                          <td className="p-4 text-center font-semibold text-teal-700 print:border print:border-gray-300">{record.executedLessons}</td>
-                          <td className="p-4 text-center text-slate-500 text-sm print:border print:border-gray-300">{record.notes || '-'}</td>
-                          <td className="p-4 text-center print:border print:border-gray-300">
-                            <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full font-bold text-sm ${getPercentageColor(percentage)} print:bg-transparent print:text-black`}>
-                              {percentage}%
-                            </div>
-                          </td>
-                          <td className="p-4 text-center print:hidden">
-                            <button 
-                              onClick={() => handleDelete(record.id)}
-                              className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition opacity-0 group-hover:opacity-100 focus:opacity-100"
-                              title="حذف السجل"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
+        {/* جدول عرض السجلات والبيانات */}
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print-card">
+            <div class="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50 print:bg-slate-100 print:border-slate-300">
+                <!-- أيقونة مستند ملف علمي مخصص -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-teal-600 print:text-slate-800"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <h2 class="text-lg font-bold text-slate-800">نتائج قياس مؤشرات عملية تنفيذ الدروس العملية</h2>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 text-sm border-b border-slate-200 print:bg-slate-200 print:text-black">
+                            <th class="p-4 font-semibold w-16 text-center print:border print:border-slate-300">م</th>
+                            <th class="p-4 font-semibold print:border print:border-slate-300">الصف</th>
+                            <th class="p-4 font-semibold text-center print:border print:border-slate-300">الشعبة</th>
+                            <th class="p-4 font-semibold text-center max-w-[120px] print:border print:border-slate-300">الدروس بالبوابة التعليمية</th>
+                            <th class="p-4 font-semibold text-center max-w-[120px] print:border print:border-slate-300">المعتمدة في الخطة</th>
+                            <th class="p-4 font-semibold text-center max-w-[120px] print:border print:border-slate-300">المنفذة فعلياً</th>
+                            <th class="p-4 font-semibold text-center print:border print:border-slate-300">الملاحظات</th>
+                            <th class="p-4 font-semibold text-center print:border print:border-slate-300">نتيجة القياس (%)</th>
+                            <th class="p-4 font-semibold text-center no-print w-16">إجراء</th>
                         </tr>
-                      );
-                    })}
-
-                    {/* صف حساب المتوسط العام المضاف حديثاً بأسلوب تلوين متميز متطابق للطباعة */}
-                    <tr className="bg-teal-50/80 font-bold border-t-2 border-teal-200 print:bg-teal-50 print:border-teal-400">
-                      <td colSpan="3" className="p-4 text-teal-900 text-center print:border print:border-gray-300">
-                        متوسط نسبة الإنجاز العامة:
-                      </td>
-                      <td className="p-4 text-center text-slate-700 print:border print:border-gray-300">
-                        {records.reduce((sum, r) => sum + (r.portalLessons || 0), 0)}
-                      </td>
-                      <td className="p-4 text-center text-slate-700 print:border print:border-gray-300">
-                        {records.reduce((sum, r) => sum + r.planLessons, 0)}
-                      </td>
-                      <td className="p-4 text-center text-teal-900 print:border print:border-gray-300">
-                        {records.reduce((sum, r) => sum + r.executedLessons, 0)}
-                      </td>
-                      <td className="p-4 text-center text-slate-500 print:border print:border-gray-300">-</td>
-                      <td className="p-4 text-center print:border print:border-gray-300">
-                        <div className={`inline-flex items-center justify-center px-4 py-2 rounded-xl font-extrabold text-base border-2 ${getPercentageColor(calculateAveragePercentage())} border-teal-200/50 print:bg-transparent print:text-black print:border-none`}>
-                          {calculateAveragePercentage()}%
-                        </div>
-                      </td>
-                      <td className="p-4 print:hidden"></td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* هوامش وقواعد القياس */}
-          <div className="p-4 bg-slate-50 text-xs text-slate-500 border-t border-slate-100 print:bg-transparent print:border-none print:mt-4">
-            <p className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
-              ملاحظة: يتم تعبئة الجدول بواسطة فني مختبر العلوم نهاية كل فصل دراسي من خلال تقارير نظام إدارة مختبرات العلوم بالبوابة التعليمية.
-            </p>
-            <p className="flex items-center gap-2 mt-1">
-              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
-              نتيجة القياس = (عدد الدروس العملية المنفذة فعليا ÷ عدد الدروس العملية المعتمدة في الخطة) × 100
-            </p>
-          </div>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 print:divide-slate-300">
+                        <!-- سيتم تعبئة البيانات تلقائياً هنا باستخدام الجافا سكريبت -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- هوامش وقواعد القياس -->
+            <div class="p-4 bg-slate-50 text-xs text-slate-500 border-t border-slate-100 print:bg-transparent print:border-none print:mt-4">
+                <p class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
+                    ملاحظة: يتم تعبئة الجدول بواسطة فني مختبر العلوم نهاية كل فصل دراسي من خلال تقارير نظام إدارة مختبرات العلوم بالبوابة التعليمية.
+                </p>
+                <p class="flex items-center gap-2 mt-1">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                    نتيجة القياس = (عدد الدروس العملية المنفذة فعليا ÷ عدد الدروس العملية المعتمدة في الخطة) × 100
+                </p>
+            </div>
         </section>
 
-        {/* قسم الاعتمادات والتشكيلات الإدارية (يظهر فقط عند الطباعة) */}
-        <section className="hidden print:flex justify-between mt-16 px-12 text-center text-sm font-bold">
-          <div>
-            <p className="mb-8">إعداد فني المختبر</p>
-            <p>الاسم: .......................................</p>
-            <p className="mt-2">التوقيع: .......................................</p>
-          </div>
-          <div>
-            <p className="mb-8">يعتمد، مدير/ة المدرسة</p>
-            <p>الاسم: .......................................</p>
-            <p className="mt-2">التوقيع: .......................................</p>
-          </div>
+        <!-- قسم الاعتمادات والتوقيعات الرسمية (يظهر فقط عند الطباعة) -->
+        <section class="hidden print:flex justify-between mt-16 px-12 text-center text-sm font-bold">
+            <div>
+                <p class="mb-12">إعداد فني المختبر</p>
+                <p>الاسم: .......................................</p>
+                <p class="mt-2">التوقيع: .......................................</p>
+            </div>
+            <div>
+                <p class="mb-12">يعتمد، مدير/ة المدرسة</p>
+                <p>الاسم: .......................................</p>
+                <p class="mt-2">التوقيع: .......................................</p>
+            </div>
         </section>
 
-      </div>
     </div>
-  );
-};
 
-export default App;
+    <!-- المنطق البرمجي (Vanilla JS) لإدارة التقارير -->
+    <script>
+        // مصفوفة تخزين السجلات في الذاكرة
+        let records = [];
+
+        // عناصر واجهة المستخدم الرئيسية
+        const form = document.getElementById('recordForm');
+        const tableBody = document.getElementById('tableBody');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        // إظهار تنبيه مخصص بديل لـ alert
+        function showToast(message) {
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3500);
+        }
+
+        // دالة تحديد لون النسبة المئوية
+        function getPercentageBadgeClass(percentage) {
+            if (percentage >= 90) return 'text-emerald-600 bg-emerald-50';
+            if (percentage >= 70) return 'text-amber-600 bg-amber-50';
+            return 'text-rose-600 bg-rose-50';
+        }
+
+        // حساب نسبة الإنجاز
+        function calculatePercentage(executed, plan) {
+            if (!plan || plan == 0) return 0;
+            return Number(((executed / plan) * 100).toFixed(1));
+        }
+
+        // حساب المتوسط العام لنسب الإنجاز
+        function calculateAveragePercentage() {
+            if (records.length === 0) return 0;
+            const total = records.reduce((sum, record) => {
+                return sum + calculatePercentage(record.executed, record.plan);
+            }, 0);
+            return Number((total / records.length).toFixed(1));
+        }
+
+        // دالة إعادة رسم جدول البيانات بالكامل
+        function renderTable() {
+            tableBody.innerHTML = '';
+
+            // 1. في حال عدم وجود أي سجلات (تم تحديث الأيقونة لتصبح دورقاً كيميائياً واضحاً يرمز للمختبرات)
+            if (records.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colSpan="9" class="p-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center justify-center">
+                                <!-- أيقونة الدورق المخروطي العلمي المحدثة للمختبر -->
+                                <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-30 text-teal-600">
+                                    <path d="M10 2h4"></path>
+                                    <path d="M10 2v3.1a2 2 0 0 1-.2 1l-3.6 7a2 2 0 0 0 1.8 2.9h8a2 2 0 0 0 1.8-2.9l-3.6-7a2 2 0 0 1-.2-1V2"></path>
+                                    <path d="M6 14h12"></path>
+                                </svg>
+                                <p class="font-bold text-slate-600">الجدول فارغ حالياً.</p>
+                                <p class="text-xs text-slate-400 mt-1">يرجى إدخال السجلات من نموذج الإضافة أعلاه لبناء التقرير.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // 2. رسم السجلات العادية
+            records.forEach((record, index) => {
+                const percentage = calculatePercentage(record.executed, record.plan);
+                const badgeClass = getPercentageBadgeClass(percentage);
+
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50/80 transition group print:hover:bg-transparent';
+                row.innerHTML = `
+                    <td class="p-4 text-center text-slate-500 print:border print:border-slate-300">${index + 1}</td>
+                    <td class="p-4 font-medium text-slate-800 print:border print:border-slate-300">${record.grade}</td>
+                    <td class="p-4 text-center print:border print:border-slate-300">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold print:bg-transparent print:border print:border-slate-300">
+                            ${record.section}
+                        </span>
+                    </td>
+                    <td class="p-4 text-center text-slate-600 print:border print:border-slate-300">${record.portal || '-'}</td>
+                    <td class="p-4 text-center text-slate-600 print:border print:border-slate-300">${record.plan}</td>
+                    <td class="p-4 text-center font-semibold text-teal-700 print:border print:border-slate-300">${record.executed}</td>
+                    <td class="p-4 text-center text-slate-500 text-sm print:border print:border-slate-300">${record.notes || '-'}</td>
+                    <td class="p-4 text-center print:border print:border-slate-300">
+                        <div class="inline-flex items-center justify-center px-3 py-1 rounded-full font-bold text-sm ${badgeClass} print:bg-transparent print:text-black print:p-0">
+                            ${percentage}%
+                        </div>
+                    </td>
+                    <td class="p-4 text-center no-print">
+                        <button onclick="deleteRecord(${record.id})" class="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition md:opacity-0 group-hover:opacity-100 focus:opacity-100" title="حذف السجل">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // 3. إضافة صف المتوسط العام في نهاية الجدول
+            const totalPortal = records.reduce((sum, r) => sum + (r.portal || 0), 0);
+            const totalPlan = records.reduce((sum, r) => sum + r.plan, 0);
+            const totalExecuted = records.reduce((sum, r) => sum + r.executed, 0);
+            const averagePercentage = calculateAveragePercentage();
+            const avgBadgeClass = getPercentageBadgeClass(averagePercentage);
+
+            const summaryRow = document.createElement('tr');
+            summaryRow.className = 'bg-teal-50/80 font-bold border-t-2 border-teal-200 print:bg-slate-100 print:border-slate-400';
+            summaryRow.innerHTML = `
+                <td colSpan="3" class="p-4 text-teal-900 text-center print:border print:border-slate-300">
+                    متوسط نسبة الإنجاز العامة:
+                </td>
+                <td class="p-4 text-center text-slate-700 print:border print:border-slate-300">${totalPortal}</td>
+                <td class="p-4 text-center text-slate-700 print:border print:border-slate-300">${totalPlan}</td>
+                <td class="p-4 text-center text-teal-900 print:border print:border-slate-300">${totalExecuted}</td>
+                <td class="p-4 text-center text-slate-500 print:border print:border-slate-300">-</td>
+                <td class="p-4 text-center print:border print:border-slate-300">
+                    <div class="inline-flex items-center justify-center px-4 py-2 rounded-xl font-extrabold text-base border border-teal-200/50 ${avgBadgeClass} print:bg-transparent print:text-black print:border-none print:p-0">
+                        ${averagePercentage}%
+                    </div>
+                </td>
+                <td class="p-4 no-print"></td>
+            `;
+            tableBody.appendChild(summaryRow);
+        }
+
+        // مستمع حدث إرسال الاستمارة (Form Submit)
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            // جلب مدخلات المستخدم وتحويل الأرقام
+            const grade = document.getElementById('inputGrade').value.trim();
+            const section = document.getElementById('inputSection').value.trim();
+            const portalVal = document.getElementById('inputPortal').value;
+            const planVal = document.getElementById('inputPlan').value;
+            const executedVal = document.getElementById('inputExecuted').value;
+            const notes = document.getElementById('inputNotes').value.trim();
+
+            const plan = Number(planVal);
+            const executed = Number(executedVal);
+            const portal = portalVal ? Number(portalVal) : plan; // إذا ترك حقل البوابة فارغاً يعوض بالخطة افتراضياً
+
+            // التحقق والتحصين
+            if (!grade || !section || isNaN(plan) || isNaN(executed)) {
+                showToast('الرجاء التأكد من ملء الحقول الأساسية المطلوبة بشكل صحيح.');
+                return;
+            }
+
+            // إنشاء السجل الجديد
+            const newRecord = {
+                id: Date.now(),
+                grade,
+                section,
+                portal,
+                plan,
+                executed,
+                notes
+            };
+
+            // إضافة السجل للمصفوفة
+            records.push(newRecord);
+
+            // تصفير جزء من النموذج لتسهيل الشعبة التالية لنفس المادة
+            document.getElementById('inputSection').value = '';
+            document.getElementById('inputExecuted').value = '';
+            document.getElementById('inputNotes').value = '';
+
+            // إعادة رسم الجدول بالبيانات المحدثة
+            renderTable();
+        });
+
+        // دالة حذف سجل معين
+        function deleteRecord(id) {
+            records = records.filter(record => record.id !== id);
+            renderTable();
+        }
+
+        // الرسم الأولي للجدول عند تحميل الصفحة
+        window.onload = function() {
+            renderTable();
+        };
+    </script>
+</body>
+</html>
