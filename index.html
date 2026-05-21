@@ -366,10 +366,8 @@
             // إضافة السجل للمصفوفة
             records.push(newRecord);
 
-            // تصفير جزء من النموذج لتسهيل الشعبة التالية لنفس المادة
-            document.getElementById('inputSection').value = '';
-            document.getElementById('inputExecuted').value = '';
-            document.getElementById('inputNotes').value = '';
+            // تصفير جميع حقول النموذج بالكامل ليكون جاهزاً لإدخال صف جديد
+            form.reset();
 
             // إعادة رسم الجدول بالبيانات المحدثة
             renderTable();
