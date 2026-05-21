@@ -1,140 +1,333 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>برنامج مركز المصادر</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head>
-<body>
-<header>
-  <div class="head">
-    <div>
-      <h1>برنامج مركز المصادر</h1>
-      <div class="sub">العهدة + الحجز + جدول أسبوعي + آراء + تقرير</div>
-    </div>
-    <div class="status">
-      <span id="statusText">جاهز</span>
-      <button class="ghost" id="btnBooking" type="button">الحجز</button>
-      <button class="ghost" id="btnSchedule" type="button">جدول الحجز</button>
-      <button class="ghost" id="btnCustody" type="button">العهدة</button>
-      <button class="ghost" id="btnFeedback" type="button">آراء الزوار</button>
-      <button class="ghost" id="btnReport" type="button">التقرير</button>
-      <button class="ghost" id="btnSettings" type="button">إعدادات التخزين</button>
-    </div>
-  </div>
-</header>
+import React, { useState } from 'react';
+import { FlaskConical, Trash2, Plus, Printer, FileText, Beaker, School, Calendar, BookOpen } from 'lucide-react';
 
-<main class="container">
+const App = () => {
+  // تفريغ حقول الترويسة لتكون جاهزة للإدخال من قبلك وتعديلها مباشرة
+  const [headerInfo, setHeaderInfo] = useState({
+    schoolName: '',
+    academicYear: '',
+    semester: ''
+  });
 
-  <section class="card tab" id="tab-booking">
-    <h2>حجز الحصص (8 حصص)</h2>
-    <div class="grid">
-      <div class="field"><label>الاسم</label><input id="b_name" placeholder="اسم المعلم/المعلمة"></div>
-      <div class="field"><label>المادة</label><input id="b_subject"></div>
-      <div class="field"><label>الصف</label><input id="b_grade" placeholder="مثال: 5/1"></div>
+  // تم إفراغ الجدول بالكامل ليكون جاهزاً لإدخال بياناتك الخاصة
+  const [records, setRecords] = useState([]);
 
-      <div class="field wide"><label>عنوان الدرس</label><input id="b_lessonTitle"></div>
-      <div class="field wide"><label>الهدف من الحجز</label><input id="b_purpose"></div>
+  // حالة نموذج الإدخال الجديد
+  const [formData, setFormData] = useState({
+    grade: '',
+    section: '',
+    portalLessons: '',
+    planLessons: '',
+    executedLessons: '',
+    notes: ''
+  });
 
-      <div class="field"><label>تاريخ الحجز</label><input id="b_date" type="date"></div>
-      <div class="field"><label>الحصة</label><select id="b_period"></select></div>
-      <div class="field"><label>ملاحظات (اختياري)</label><input id="b_notes"></div>
-    </div>
+  // دالة حساب نسبة الإنجاز تلقائياً لكل صف
+  const calculatePercentage = (executed, plan) => {
+    if (!plan || plan == 0) return 0;
+    const result = (executed / plan) * 100;
+    return Number(result.toFixed(1)); // تقريب لمنزلة عشرية واحدة
+  };
 
-    <div class="actions">
-      <button id="btnSubmitBooking" type="button">إرسال الحجز</button>
-      <button class="secondary" id="btnRefreshBookings" type="button">تحديث الحجوزات</button>
-    </div>
+  // دالة حساب متوسط النسبة المئوية العامة لجميع الصفوف
+  const calculateAveragePercentage = () => {
+    if (records.length === 0) return 0;
+    const totalPercentages = records.reduce((sum, record) => {
+      return sum + calculatePercentage(record.executedLessons, record.planLessons);
+    }, 0);
+    return Number((totalPercentages / records.length).toFixed(1));
+  };
 
-    <div class="hint">يتم الحفظ المشترك عبر Google Apps Script. يمكن تغيير الرابط من (إعدادات التخزين).</div>
-  </section>
+  // معالجة تغييرات الترويسة
+  const handleHeaderChange = (e) => {
+    const { name, value } = e.target;
+    setHeaderInfo(prev => ({ ...prev, [name]: value }));
+  };
 
-  <section class="card tab" id="tab-schedule" hidden>
-    <h2>جدول الحجز الأسبوعي</h2>
-    <div class="toolbar">
-      <button class="ghost" id="btnPrevWeek" type="button">⬅ الأسبوع السابق</button>
-      <div class="field">
-        <label>بداية الأسبوع (الأحد)</label>
-        <input id="weekStart" type="date">
+  // معالجة تغييرات نموذج الإدخال
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // إضافة سجل جديد للجدول
+  const handleAddRecord = (e) => {
+    e.preventDefault();
+    if (!formData.grade || !formData.section || !formData.planLessons || !formData.executedLessons) {
+      alert('يرجى تعبئة الحقول الأساسية (الصف، الشعبة، الدروس المعتمدة، والدروس المنفذة)');
+      return;
+    }
+
+    const newRecord = {
+      id: Date.now(),
+      grade: formData.grade,
+      section: formData.section,
+      portalLessons: Number(formData.portalLessons) || Number(formData.planLessons), // افتراضياً نفس المعتمدة إذا تركت فارغة
+      planLessons: Number(formData.planLessons),
+      executedLessons: Number(formData.executedLessons),
+      notes: formData.notes
+    };
+
+    setRecords([...records, newRecord]);
+    
+    // تصفير نموذج الإدخال جزئياً لتسهيل كتابة الشعبة التالية لنفس الصف
+    setFormData({
+      ...formData,
+      section: '',
+      executedLessons: '',
+      notes: ''
+    });
+  };
+
+  // حذف سجل من الجدول
+  const handleDelete = (id) => {
+    setRecords(records.filter(record => record.id !== id));
+  };
+
+  // دالة تحديد لون مؤشر نسبة الإنجاز
+  const getPercentageColor = (percentage) => {
+    if (percentage >= 90) return 'text-emerald-600 bg-emerald-50';
+    if (percentage >= 70) return 'text-amber-600 bg-amber-50';
+    return 'text-rose-600 bg-rose-50';
+  };
+
+  return (
+    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans text-slate-800 p-4 md:p-8">
+      {/* الحاوية الرئيسية للتطبيق */}
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* الترويسة العلوية للمستند مع الحقول الفارغة القابلة للتعبئة مباشرة */}
+        <header className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none print:bg-transparent">
+          <div className="bg-teal-600 p-6 text-white flex items-center justify-between print:bg-teal-700 print:text-black print:p-0 print:mb-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm print:hidden">
+                <Beaker size={32} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold mb-1">التقرير الفني الفصلي لمختبرات العلوم</h1>
+                <p className="text-teal-100 text-sm print:text-gray-600">متابعة تنفيذ الدروس العملية - إعداد فني المختبر</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => window.print()}
+              className="print:hidden flex items-center gap-2 bg-white/10 hover:bg-white/20 transition px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              <Printer size={18} />
+              <span>طباعة التقرير</span>
+            </button>
+          </div>
+
+          {/* شبكة حقول الترويسة (فارغة لتقوم بإدخالها وتعديلها بسهولة) */}
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 print:p-0 print:gap-4">
+            <div className="space-y-1 relative">
+              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                <School size={14} className="text-teal-600" /> اسم المدرسة
+              </label>
+              <input 
+                type="text" 
+                name="schoolName"
+                placeholder="أدخل اسم المدرسة هنا..."
+                value={headerInfo.schoolName}
+                onChange={handleHeaderChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                <Calendar size={14} className="text-teal-600" /> العام الدراسي
+              </label>
+              <input 
+                type="text" 
+                name="academicYear"
+                placeholder="مثال: 2025/2026م"
+                value={headerInfo.academicYear}
+                onChange={handleHeaderChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                <BookOpen size={14} className="text-teal-600" /> الفصل الدراسي
+              </label>
+              <input 
+                type="text" 
+                name="semester"
+                placeholder="مثال: الثاني"
+                value={headerInfo.semester}
+                onChange={handleHeaderChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition print:bg-transparent print:border-none print:p-0 print:font-bold print:text-lg"
+              />
+            </div>
+          </div>
+        </header>
+
+        {/* قسم نموذج إدخال البيانات (يختفي عند الطباعة) */}
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 print:hidden">
+          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+            <div className="bg-teal-100 p-2 rounded-lg text-teal-600">
+              <Plus size={20} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800">إضافة سجل جديد للتقرير</h2>
+          </div>
+
+          <form onSubmit={handleAddRecord} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">الصف والفرع العلمى</label>
+              <input required type="text" name="grade" value={formData.grade} onChange={handleFormChange} placeholder="مثال: الخامس أو التاسع كيمياء" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">الشعبة</label>
+              <input required type="text" name="section" value={formData.section} onChange={handleFormChange} placeholder="مثال: 1" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600" title="في نظام إدارة مختبرات العلوم في البوابة التعليمية">الدروس بالبوابة</label>
+              <input type="number" name="portalLessons" value={formData.portalLessons} onChange={handleFormChange} placeholder="اختياري" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600" title="المعتمدة في خطة الدروس العملية">المعتمدة بالخطة</label>
+              <input required type="number" name="planLessons" value={formData.planLessons} onChange={handleFormChange} placeholder="عدد الدروس" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">المنفذة فعلياً</label>
+              <input required type="number" name="executedLessons" value={formData.executedLessons} onChange={handleFormChange} placeholder="عدد الدروس" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="space-y-1 lg:col-span-1">
+              <label className="text-xs font-semibold text-slate-600">ملاحظات</label>
+              <input type="text" name="notes" value={formData.notes} onChange={handleFormChange} placeholder="مثال: أجر يومي" className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition" />
+            </div>
+            <div className="lg:col-span-6 flex justify-end mt-2">
+              <button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg font-medium transition shadow-sm flex items-center gap-2">
+                <Plus size={18} />
+                إدراج في الجدول
+              </button>
+            </div>
+          </form>
+        </section>
+
+        {/* جدول عرض البيانات */}
+        <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden print:border-slate-400 print:shadow-none">
+          <div className="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50 print:bg-gray-100 print:border-gray-400">
+            <FileText size={20} className="text-teal-600 print:text-black" />
+            <h2 className="text-lg font-bold text-slate-800">نتائج قياس مؤشرات عملية تنفيذ الدروس العملية</h2>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-right border-collapse">
+              <thead>
+                <tr className="bg-slate-100 text-slate-600 text-sm border-b border-slate-200 print:bg-gray-200 print:text-black print:border-gray-400">
+                  <th className="p-4 font-semibold w-16 text-center">م</th>
+                  <th className="p-4 font-semibold">الصف</th>
+                  <th className="p-4 font-semibold text-center">الشعبة</th>
+                  <th className="p-4 font-semibold text-center max-w-[120px]">الدروس بالبوابة التعليمية</th>
+                  <th className="p-4 font-semibold text-center max-w-[120px]">المعتمدة في الخطة</th>
+                  <th className="p-4 font-semibold text-center max-w-[120px]">المنفذة فعلياً</th>
+                  <th className="p-4 font-semibold text-center">الملاحظات</th>
+                  <th className="p-4 font-semibold text-center">نتيجة القياس (%)</th>
+                  <th className="p-4 font-semibold text-center print:hidden w-16">إجراء</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 print:divide-gray-300">
+                {records.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="p-12 text-center text-slate-400">
+                      <FlaskConical size={52} className="mx-auto mb-3 opacity-20 text-teal-600" />
+                      <p className="font-medium text-slate-500">الجدول فارغ حالياً.</p>
+                      <p className="text-xs text-slate-400 mt-1">يرجى إدخال السجلات من نموذج الإضافة أعلاه لبناء التقرير.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {records.map((record, index) => {
+                      const percentage = calculatePercentage(record.executedLessons, record.planLessons);
+                      return (
+                        <tr key={record.id} className="hover:bg-slate-50/80 transition group print:hover:bg-transparent">
+                          <td className="p-4 text-center text-slate-500 print:border print:border-gray-300">{index + 1}</td>
+                          <td className="p-4 font-medium text-slate-800 print:border print:border-gray-300">{record.grade}</td>
+                          <td className="p-4 text-center print:border print:border-gray-300">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-semibold print:bg-transparent print:border print:border-gray-300">
+                              {record.section}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center text-slate-600 print:border print:border-gray-300">{record.portalLessons || '-'}</td>
+                          <td className="p-4 text-center text-slate-600 print:border print:border-gray-300">{record.planLessons}</td>
+                          <td className="p-4 text-center font-semibold text-teal-700 print:border print:border-gray-300">{record.executedLessons}</td>
+                          <td className="p-4 text-center text-slate-500 text-sm print:border print:border-gray-300">{record.notes || '-'}</td>
+                          <td className="p-4 text-center print:border print:border-gray-300">
+                            <div className={`inline-flex items-center justify-center px-3 py-1 rounded-full font-bold text-sm ${getPercentageColor(percentage)} print:bg-transparent print:text-black`}>
+                              {percentage}%
+                            </div>
+                          </td>
+                          <td className="p-4 text-center print:hidden">
+                            <button 
+                              onClick={() => handleDelete(record.id)}
+                              className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              title="حذف السجل"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* صف حساب المتوسط العام المضاف حديثاً بأسلوب تلوين متميز متطابق للطباعة */}
+                    <tr className="bg-teal-50/80 font-bold border-t-2 border-teal-200 print:bg-teal-50 print:border-teal-400">
+                      <td colSpan="3" className="p-4 text-teal-900 text-center print:border print:border-gray-300">
+                        متوسط نسبة الإنجاز العامة:
+                      </td>
+                      <td className="p-4 text-center text-slate-700 print:border print:border-gray-300">
+                        {records.reduce((sum, r) => sum + (r.portalLessons || 0), 0)}
+                      </td>
+                      <td className="p-4 text-center text-slate-700 print:border print:border-gray-300">
+                        {records.reduce((sum, r) => sum + r.planLessons, 0)}
+                      </td>
+                      <td className="p-4 text-center text-teal-900 print:border print:border-gray-300">
+                        {records.reduce((sum, r) => sum + r.executedLessons, 0)}
+                      </td>
+                      <td className="p-4 text-center text-slate-500 print:border print:border-gray-300">-</td>
+                      <td className="p-4 text-center print:border print:border-gray-300">
+                        <div className={`inline-flex items-center justify-center px-4 py-2 rounded-xl font-extrabold text-base border-2 ${getPercentageColor(calculateAveragePercentage())} border-teal-200/50 print:bg-transparent print:text-black print:border-none`}>
+                          {calculateAveragePercentage()}%
+                        </div>
+                      </td>
+                      <td className="p-4 print:hidden"></td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* هوامش وقواعد القياس */}
+          <div className="p-4 bg-slate-50 text-xs text-slate-500 border-t border-slate-100 print:bg-transparent print:border-none print:mt-4">
+            <p className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
+              ملاحظة: يتم تعبئة الجدول بواسطة فني مختبر العلوم نهاية كل فصل دراسي من خلال تقارير نظام إدارة مختبرات العلوم بالبوابة التعليمية.
+            </p>
+            <p className="flex items-center gap-2 mt-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+              نتيجة القياس = (عدد الدروس العملية المنفذة فعليا ÷ عدد الدروس العملية المعتمدة في الخطة) × 100
+            </p>
+          </div>
+        </section>
+
+        {/* قسم الاعتمادات والتشكيلات الإدارية (يظهر فقط عند الطباعة) */}
+        <section className="hidden print:flex justify-between mt-16 px-12 text-center text-sm font-bold">
+          <div>
+            <p className="mb-8">إعداد فني المختبر</p>
+            <p>الاسم: .......................................</p>
+            <p className="mt-2">التوقيع: .......................................</p>
+          </div>
+          <div>
+            <p className="mb-8">يعتمد، مدير/ة المدرسة</p>
+            <p>الاسم: .......................................</p>
+            <p className="mt-2">التوقيع: .......................................</p>
+          </div>
+        </section>
+
       </div>
-      <button class="ghost" id="btnNextWeek" type="button">الأسبوع التالي ➡</button>
-      <button class="ghost" id="btnRefreshWeek" type="button">تحديث</button>
     </div>
-    <div class="hint">يظهر الحجز داخل خلية (اليوم × الحصة). إذا وُجد أكثر من حجز لنفس الخلية يظهر "تعارض".</div>
-    <div class="tableWrap">
-      <table id="weekTable">
-        <thead id="weekHead"></thead>
-        <tbody id="weekBody"></tbody>
-      </table>
-    </div>
-  </section>
+  );
+};
 
-  <section class="card tab" id="tab-custody" hidden>
-    <h2>العهدة (14 قسم)</h2>
-    <div class="hint">ضع ملفات Excel للأقسام داخل مجلد <b>data/</b> ثم اضغط على القسم.</div>
-    <div class="deptChips" id="custodyChips"></div>
-    <div class="toolbar">
-      <div class="field"><label>بحث داخل الكتب</label><input id="c_q" placeholder="العنوان/المؤلفون/المواضيع..."></div>
-      <button class="ghost" id="btnReloadCustody" type="button">إعادة تحميل القسم</button>
-    </div>
-    <div class="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th>الرقم العام</th><th>رقم التصنيف</th><th>رقم الطلب</th><th>العنوان</th><th>المواضيع</th><th>المؤلفون</th>
-            <th>سنة النشر</th><th>الناشر</th><th>يعار/لا يعار</th><th>عام/مرجع</th>
-          </tr>
-        </thead>
-        <tbody id="custodyBody"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="card tab" id="tab-feedback" hidden>
-    <h2>آراء الزوار</h2>
-    <div class="grid">
-      <div class="field"><label>الفئة</label>
-        <select id="f_type"><option>طالب</option><option>معلم</option><option>زائر</option><option>إداري</option><option>ولي أمر</option><option>أخرى</option></select>
-      </div>
-      <div class="field"><label>التقييم (1-5)</label>
-        <select id="f_rate"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select>
-      </div>
-      <div class="field"><label>الاسم (اختياري)</label><input id="f_name"></div>
-      <div class="field wide"><label>الرأي/الملاحظة</label><textarea id="f_text"></textarea></div>
-    </div>
-    <div class="actions"><button id="btnSubmitFeedback" type="button">إرسال الرأي</button></div>
-  </section>
-
-  <section class="card tab" id="tab-report" hidden>
-    <h2>التقرير</h2>
-    <div class="reportGrid">
-      <div class="kpi"><div class="k">إجمالي الحجوزات</div><div class="v" id="r_totalBookings">0</div></div>
-      <div class="kpi"><div class="k">حجوزات اليوم</div><div class="v" id="r_todayBookings">0</div></div>
-      <div class="kpi"><div class="k">عدد التعارضات</div><div class="v" id="r_conflicts">0</div></div>
-      <div class="kpi"><div class="k">إجمالي الآراء</div><div class="v" id="r_totalFeedback">0</div></div>
-      <div class="kpi"><div class="k">متوسط التقييم</div><div class="v" id="r_avgRate">0</div></div>
-    </div>
-  </section>
-
-</main>
-
-<dialog id="settingsDlg" class="dlg">
-  <div class="card">
-    <h2>إعدادات التخزين</h2>
-    <div class="field">
-      <label>رابط Apps Script Web App</label>
-      <input id="apiUrl" placeholder="اتركه فارغاً لاستخدام الرابط المدموج">
-      <div class="hint">إذا تركته فارغاً سيتم استخدام الرابط المدموج داخل app.js تلقائياً.</div>
-    </div>
-    <div class="actions">
-      <button id="btnSaveSettings" type="button">حفظ</button>
-      <button class="ghost" id="btnCloseSettings" type="button">إغلاق</button>
-    </div>
-  </div>
-</dialog>
-
-<script src="app.js?v=20260211"></script>
-</body>
-</html>
+export default App;
