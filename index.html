@@ -111,7 +111,7 @@
                 <h2 class="text-lg font-bold text-slate-800">إضافة سجل جديد للتقرير</h2>
             </div>
 
-            <form id="recordForm" autocomplete="off" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+            <form id="recordForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
                 <div class="space-y-1 lg:col-span-1">
                     <label class="text-xs font-semibold text-slate-600">الصف والفرع العلمي</label>
                     <input required type="text" id="inputGrade" placeholder="مثال: الخامس أو التاسع كيمياء" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition">
@@ -184,6 +184,17 @@
                     <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
                     نتيجة القياس = (عدد الدروس العملية المنفذة فعليا ÷ عدد الدروس العملية المعتمدة في الخطة) × 100
                 </p>
+            </div>
+
+            <!-- زر إرسال البيانات إلى Google Sheets -->
+            <div class="p-6 border-t border-slate-200 flex justify-center no-print">
+                <button id="sendToSheetBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold transition shadow-md flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 2L11 13"></path>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                    <span id="sendBtnText">إرسال البيانات إلى Google Sheet</span>
+                </button>
             </div>
         </section>
 
@@ -304,7 +315,7 @@
             });
 
             // 3. إضافة صف المتوسط العام في نهاية الجدول
-            const totalPortal = records.reduce((sum, r) => sum + (Number(r.portal) || 0), 0);
+            const totalPortal = records.reduce((sum, r) => sum + (r.portal || 0), 0);
             const totalPlan = records.reduce((sum, r) => sum + r.plan, 0);
             const totalExecuted = records.reduce((sum, r) => sum + r.executed, 0);
             const averagePercentage = calculateAveragePercentage();
@@ -344,7 +355,7 @@
 
             const plan = Number(planVal);
             const executed = Number(executedVal);
-            const portal = portalVal ? Number(portalVal) : ''; // يبقى حقل الدروس بالبوابة فارغاً إذا لم تتم تعبئته
+            const portal = portalVal ? Number(portalVal) : plan; // إذا ترك حقل البوابة فارغاً يعوض بالخطة افتراضياً
 
             // التحقق والتحصين
             if (!grade || !section || isNaN(plan) || isNaN(executed)) {
@@ -373,6 +384,74 @@
             renderTable();
         });
 
+        // إعداد رابط Google Apps Script
+        const GOOGLE_SHEET_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLdcwcbBVA78pZe8AzIgRpkRyhwKo81xHQ_Jfr5fjj/dev';
+
+        // تجهيز البيانات المرسلة إلى Google Sheet
+        function buildSheetPayload() {
+            const totalPortal = records.reduce((sum, r) => sum + (Number(r.portal) || 0), 0);
+            const totalPlan = records.reduce((sum, r) => sum + (Number(r.plan) || 0), 0);
+            const totalExecuted = records.reduce((sum, r) => sum + (Number(r.executed) || 0), 0);
+
+            return {
+                schoolName: document.getElementById('schoolName').value.trim(),
+                academicYear: document.getElementById('academicYear').value.trim(),
+                semester: document.getElementById('semester').value.trim(),
+                sentAt: new Date().toLocaleString('ar-OM'),
+                records: records.map((record, index) => ({
+                    serial: index + 1,
+                    grade: record.grade,
+                    section: record.section,
+                    portal: record.portal || '',
+                    plan: record.plan,
+                    executed: record.executed,
+                    notes: record.notes || '',
+                    percentage: calculatePercentage(record.executed, record.plan)
+                })),
+                summary: {
+                    totalPortal,
+                    totalPlan,
+                    totalExecuted,
+                    averagePercentage: calculateAveragePercentage()
+                }
+            };
+        }
+
+        // إرسال البيانات إلى Google Sheet بعد إدخال السجلات
+        document.getElementById('sendToSheetBtn').addEventListener('click', function () {
+            if (records.length === 0) {
+                showToast('لا توجد بيانات لإرسالها.');
+                return;
+            }
+
+            const sendButton = document.getElementById('sendToSheetBtn');
+            const sendBtnText = document.getElementById('sendBtnText');
+            const originalText = sendBtnText.textContent;
+
+            sendButton.disabled = true;
+            sendBtnText.textContent = 'جاري الإرسال...';
+
+            fetch(GOOGLE_SHEET_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8'
+                },
+                body: JSON.stringify(buildSheetPayload())
+            })
+            .then(() => {
+                showToast('تم إرسال البيانات إلى Google Sheet.');
+            })
+            .catch((error) => {
+                console.error('Google Sheet Error:', error);
+                showToast('حدث خطأ أثناء الإرسال، تحقق من رابط السكربت وصلاحيات النشر.');
+            })
+            .finally(() => {
+                sendButton.disabled = false;
+                sendBtnText.textContent = originalText;
+            });
+        });
+
         // دالة حذف سجل معين
         function deleteRecord(id) {
             records = records.filter(record => record.id !== id);
@@ -381,8 +460,6 @@
 
         // الرسم الأولي للجدول عند تحميل الصفحة
         window.onload = function() {
-            document.querySelectorAll('input').forEach(input => input.value = '');
-            records = [];
             renderTable();
         };
     </script>
