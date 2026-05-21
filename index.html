@@ -98,7 +98,9 @@
 
         <!-- قسم تنبيهات النظام المخصص والبديل لـ alert() -->
         <div id="toast" class="hidden fixed top-5 left-1/2 transform -translate-x-1/2 bg-rose-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 transition-all duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="toast-icon" class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </span>
             <span id="toast-message">يرجى إدخال الحقول المطلوبة</span>
         </div>
 
@@ -186,14 +188,14 @@
                 </p>
             </div>
 
-            <!-- زر إرسال البيانات إلى Google Sheets -->
+            <!-- زر إرسال البياناتs -->
             <div class="p-6 border-t border-slate-200 flex justify-center no-print">
                 <button id="sendToSheetBtn" type="button" class="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold transition shadow-md flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M22 2L11 13"></path>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                     </svg>
-                    <span id="sendBtnText">إرسال البيانات إلى Google Sheet</span>
+                    <span id="sendBtnText">إرسال البيانات</span>
                 </button>
             </div>
         </section>
@@ -224,11 +226,19 @@
         const tableBody = document.getElementById('tableBody');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toast-message');
+        const toastIcon = document.getElementById('toast-icon');
 
         // إظهار تنبيه مخصص بديل لـ alert
-        function showToast(message) {
+        function showToast(message, type = 'error') {
             toastMessage.textContent = message;
-            toast.classList.remove('hidden');
+
+            toast.classList.remove('bg-rose-600', 'bg-emerald-600', 'hidden');
+            toast.classList.add(type === 'success' ? 'bg-emerald-600' : 'bg-rose-600');
+
+            toastIcon.innerHTML = type === 'success'
+                ? '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+
             setTimeout(() => {
                 toast.classList.add('hidden');
             }, 3500);
@@ -405,7 +415,7 @@
             };
         }
 
-        // إرسال البيانات إلى Google Sheet بعد إدخال السجلات
+        // إرسال البيانات بعد إدخال السجلات
         document.getElementById('sendToSheetBtn').addEventListener('click', function () {
             if (records.length === 0) {
                 showToast('لا توجد بيانات لإرسالها.');
@@ -439,7 +449,7 @@
                 body: JSON.stringify(payload)
             })
             .then(() => {
-                showToast('تم إرسال الطلب. تحقق من Google Sheet بعد ثوانٍ.');
+                showToast('تم الإرسال بنجاح', 'success');
             })
             .catch((error) => {
                 console.error('Google Sheet Error:', error);
